@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { DEFAULT_MODULES, computeGrade, computeTotal, type ModuleScore } from "@/lib/grading";
 import { encodeParticipantClient } from "@/lib/encode-client";
 import { makeCertificateId } from "@/lib/id";
@@ -29,7 +29,41 @@ function toParticipant(f: FormState): ParticipantData {
   return { ...f, total, grade: computeGrade(total) };
 }
 
-type Tab = "manual" | "bulk";
+type Tab = "manual" | "bulk" | "history";
+
+type CertificateRecord = {
+  id: string;
+  nama: string;
+  email: string;
+  judul: string;
+  batch: string;
+  pelaksanaan: string;
+  photo_url: string | null;
+  send_mode: string;
+  total: string | number;
+  grade: string;
+  modules: ModuleScore[];
+  created_at: string;
+  sent_at: string | null;
+  sent_status: "pending" | "sent" | "failed";
+  sent_error: string | null;
+};
+
+function recordToParticipant(r: CertificateRecord): ParticipantData {
+  return {
+    id: r.id,
+    nama: r.nama,
+    email: r.email,
+    judul: r.judul,
+    batch: r.batch,
+    pelaksanaan: r.pelaksanaan,
+    photoUrl: r.photo_url ?? undefined,
+    sendMode: r.send_mode === "performance" ? "performance" : "certificate",
+    modules: r.modules,
+    total: Number(r.total),
+    grade: r.grade,
+  };
+}
 
 export function AdminApp() {
   const [tab, setTab] = useState<Tab>("manual");
@@ -59,6 +93,14 @@ export function AdminApp() {
           row.batch.toLowerCase().includes(q)
       );
   }, [bulkRows, bulkSearch]);
+
+  const [historyRows, setHistoryRows] = useState<CertificateRecord[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [historyConfigured, setHistoryConfigured] = useState(true);
+  const [historySearch, setHistorySearch] = useState("");
+  const [historyStatusFilter, setHistoryStatusFilter] = useState<"all" | "sent" | "failed" | "pending">("all");
+  const [historyPreview, setHistoryPreview] = useState<CertificateRecord | null>(null);
 
   const participant = useMemo(() => toParticipant(form), [form]);
   const encoded = useMemo(() => encodeParticipantClient(participant), [participant]);
@@ -176,6 +218,58 @@ export function AdminApp() {
     setBulkBusy(false);
   }
 
+  async function loadHistory() {
+    setHistoryLoading(true);
+    setHistoryError(null);
+    try {
+      const res = await fetch("/api/certificates");
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Gagal memuat riwayat");
+      setHistoryConfigured(json.configured);
+      setHistoryRows(json.certificates);
+    } catch (e) {
+      setHistoryError((e as Error).message);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (tab === "history") loadHistory();
+  }, [tab]);
+
+  async function handleResend(record: CertificateRecord) {
+    const p = recordToParticipant(record);
+    setHistoryRows((rows) =>
+      rows.map((r) => (r.id === record.id ? { ...r, sent_status: "pending" as const } : r))
+    );
+    try {
+      const res = await fetch("/api/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(p),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      // ignore, loadHistory() below will reflect the true persisted status
+    }
+    await loadHistory();
+  }
+
+  const filteredHistory = useMemo(() => {
+    const q = historySearch.trim().toLowerCase();
+    return historyRows.filter((r) => {
+      if (historyStatusFilter !== "all" && r.sent_status !== historyStatusFilter) return false;
+      if (!q) return true;
+      return (
+        r.nama.toLowerCase().includes(q) ||
+        r.email.toLowerCase().includes(q) ||
+        r.batch.toLowerCase().includes(q) ||
+        r.id.toLowerCase().includes(q)
+      );
+    });
+  }, [historyRows, historySearch, historyStatusFilter]);
+
   return (
     <div className="min-h-screen bg-[#F9FAFB]">
       <header className="bg-[#023047] text-white px-6 py-4 flex items-center gap-3">
@@ -204,6 +298,14 @@ export function AdminApp() {
             }`}
           >
             Import dari Excel
+          </button>
+          <button
+            onClick={() => setTab("history")}
+            className={`px-4 py-2 rounded-md text-sm font-medium ${
+              tab === "history" ? "bg-[#FF5400] text-white" : "bg-white text-gray-600 border"
+            }`}
+          >
+            Riwayat Sertifikat
           </button>
         </div>
 
@@ -443,7 +545,109 @@ export function AdminApp() {
             )}
           </div>
         )}
+
+        {tab === "history" && (
+          <div className="bg-white rounded-lg border p-5 space-y-4">
+            {!historyConfigured && (
+              <div className="text-sm rounded-md px-3 py-2 bg-amber-50 text-amber-800">
+                Database belum terhubung (env <code>DATABASE_URL</code> belum diset), jadi riwayat
+                pengiriman sertifikat belum bisa disimpan/ditampilkan. Setelah database disambungkan,
+                riwayat akan otomatis tercatat di sini.
+              </div>
+            )}
+            {historyError && (
+              <div className="text-sm rounded-md px-3 py-2 bg-red-50 text-red-700">{historyError}</div>
+            )}
+
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-2 flex-wrap">
+                <input
+                  className="input max-w-xs"
+                  placeholder="Cari nama, email, batch, atau ID..."
+                  value={historySearch}
+                  onChange={(e) => setHistorySearch(e.target.value)}
+                />
+                <select
+                  className="input w-40"
+                  value={historyStatusFilter}
+                  onChange={(e) => setHistoryStatusFilter(e.target.value as typeof historyStatusFilter)}
+                >
+                  <option value="all">Semua status</option>
+                  <option value="sent">Terkirim</option>
+                  <option value="failed">Gagal</option>
+                  <option value="pending">Pending</option>
+                </select>
+              </div>
+              <button className="btn" onClick={loadHistory} disabled={historyLoading}>
+                {historyLoading ? "Memuat..." : "Refresh"}
+              </button>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-gray-500 border-b">
+                    <th className="py-2 pr-4">Certificate ID</th>
+                    <th className="py-2 pr-4">Nama</th>
+                    <th className="py-2 pr-4">Email</th>
+                    <th className="py-2 pr-4">Batch</th>
+                    <th className="py-2 pr-4">Grade</th>
+                    <th className="py-2 pr-4">Status</th>
+                    <th className="py-2 pr-4">Tanggal Kirim</th>
+                    <th className="py-2 pr-4">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredHistory.map((r) => (
+                    <tr key={r.id} className="border-b last:border-0 hover:bg-gray-50">
+                      <td className="py-2 pr-4 font-mono text-xs">{r.id}</td>
+                      <td className="py-2 pr-4">{r.nama}</td>
+                      <td className="py-2 pr-4">{r.email}</td>
+                      <td className="py-2 pr-4">{r.batch}</td>
+                      <td className="py-2 pr-4">{r.grade}</td>
+                      <td className="py-2 pr-4">
+                        <HistoryStatusBadge status={r.sent_status} error={r.sent_error} />
+                      </td>
+                      <td className="py-2 pr-4 text-xs text-gray-500">
+                        {r.sent_at ? new Date(r.sent_at).toLocaleString("id-ID") : "—"}
+                      </td>
+                      <td className="py-2 pr-4 whitespace-nowrap">
+                        <button
+                          className="text-[#023047] hover:underline mr-3"
+                          onClick={() => setHistoryPreview(r)}
+                        >
+                          Preview
+                        </button>
+                        <button className="text-[#FF5400] hover:underline" onClick={() => handleResend(r)}>
+                          Kirim Ulang
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {filteredHistory.length === 0 && !historyLoading && (
+                    <tr>
+                      <td colSpan={8} className="py-6 text-center text-gray-400">
+                        Belum ada riwayat sertifikat.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
+
+      {historyPreview && (
+        <PreviewModal
+          row={recordToParticipant(historyPreview)}
+          onClose={() => setHistoryPreview(null)}
+          onSend={async () => {
+            await handleResend(historyPreview);
+            setHistoryPreview(null);
+          }}
+        />
+      )}
 
       {previewIndex !== null && bulkRows[previewIndex] && (
         <PreviewModal
@@ -502,6 +706,26 @@ function PreviewModal({
       </div>
     </div>
   );
+}
+
+function HistoryStatusBadge({
+  status,
+  error,
+}: {
+  status: "pending" | "sent" | "failed";
+  error?: string | null;
+}) {
+  if (status === "sent") {
+    return <span className="text-xs font-medium text-green-700 bg-green-50 px-2 py-0.5 rounded-full">Terkirim</span>;
+  }
+  if (status === "failed") {
+    return (
+      <span className="text-xs font-medium text-red-700 bg-red-50 px-2 py-0.5 rounded-full" title={error ?? undefined}>
+        Gagal
+      </span>
+    );
+  }
+  return <span className="text-xs font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full">Pending</span>;
 }
 
 function StatusBadge({ status }: { status?: { state: "sending" | "ok" | "err"; message?: string } }) {

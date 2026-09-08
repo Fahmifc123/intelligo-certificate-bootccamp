@@ -1,5 +1,7 @@
+import { customAlphabet } from "nanoid";
+
+const nanoid = customAlphabet("ABCDEFGHJKLMNPQRSTUVWXYZ23456789", 8);
+
 export function makeCertificateId(prefix = "INTL"): string {
-  const rand = Math.random().toString(36).slice(2, 8).toUpperCase();
-  const stamp = Date.now().toString(36).toUpperCase();
-  return `${prefix}-${stamp}-${rand}`;
+  return `${prefix}-${nanoid()}`;
 }

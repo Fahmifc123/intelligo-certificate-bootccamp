@@ -49,3 +49,5 @@ Buka http://localhost:3000
 - `src/app/api/send` — generate PDF + kirim email via Resend.
 - `src/app/api/import` — parse file Excel yang diupload jadi data peserta.
 - `src/lib/grading.ts` — perhitungan Total & Grade dari bobot modul.
+
+Deployed on Vercel.

@@ -41,6 +41,7 @@ export function AdminApp() {
   const [bulkSelected, setBulkSelected] = useState<Set<number>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkProgress, setBulkProgress] = useState<string>("");
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
 
   const participant = useMemo(() => toParticipant(form), [form]);
   const encoded = useMemo(() => encodeParticipantClient(participant), [participant]);
@@ -354,7 +355,13 @@ export function AdminApp() {
                           <td className="py-2 pr-4">{row.total.toFixed(2)}</td>
                           <td className="py-2 pr-4">{row.grade}</td>
                           <td className="py-2 pr-4">{row.sendMode}</td>
-                          <td className="py-2 pr-4">
+                          <td className="py-2 pr-4 whitespace-nowrap">
+                            <button
+                              className="text-[#023047] hover:underline mr-3"
+                              onClick={() => setPreviewIndex(i)}
+                            >
+                              Preview
+                            </button>
                             <button
                               className="text-[#FF5400] hover:underline"
                               onClick={() => downloadPdf("certificate", row)}
@@ -375,6 +382,69 @@ export function AdminApp() {
             )}
           </div>
         )}
+      </div>
+
+      {previewIndex !== null && bulkRows[previewIndex] && (
+        <PreviewModal
+          row={bulkRows[previewIndex]}
+          onClose={() => setPreviewIndex(null)}
+          onSend={async () => {
+            const row = bulkRows[previewIndex];
+            setBulkProgress(`Mengirim ke ${row.nama} (${row.email})...`);
+            try {
+              const res = await fetch("/api/send", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(row.id ? row : { ...row, id: makeCertificateId() }),
+              });
+              if (!res.ok) throw new Error(await res.text());
+              setBulkProgress(`Email berhasil dikirim ke ${row.nama}.`);
+            } catch (e) {
+              setBulkProgress(`Gagal mengirim ke ${row.nama}: ${(e as Error).message}`);
+            }
+            setPreviewIndex(null);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function PreviewModal({
+  row,
+  onClose,
+  onSend,
+}: {
+  row: ParticipantData;
+  onClose: () => void;
+  onSend: () => void;
+}) {
+  const encoded = useMemo(() => encodeParticipantClient(row), [row]);
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between px-5 py-3 border-b sticky top-0 bg-white">
+          <div>
+            <h3 className="font-semibold text-gray-800">{row.nama}</h3>
+            <p className="text-xs text-gray-500">
+              {row.email} &middot; Total {row.total.toFixed(2)} &middot; {row.grade}
+            </p>
+          </div>
+          <button className="btn" onClick={onClose}>
+            Tutup
+          </button>
+        </div>
+        <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <PreviewCard title="Certificate" src={`/print/certificate?d=${encoded}`} aspect={10 / 7.5} />
+          {row.sendMode === "performance" && (
+            <PreviewCard title="Performance Report" src={`/print/performance?d=${encoded}`} aspect={8.27 / 11.69} />
+          )}
+        </div>
+        <div className="px-5 pb-5 flex justify-end">
+          <button className="btn-primary" onClick={onSend} disabled={!row.email}>
+            Kirim Email ke Peserta Ini
+          </button>
+        </div>
       </div>
     </div>
   );

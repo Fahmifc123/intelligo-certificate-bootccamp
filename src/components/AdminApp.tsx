@@ -42,6 +42,23 @@ export function AdminApp() {
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkProgress, setBulkProgress] = useState<string>("");
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
+  const [bulkSearch, setBulkSearch] = useState("");
+  const [sendStatus, setSendStatus] = useState<
+    Record<number, { state: "sending" | "ok" | "err"; message?: string }>
+  >({});
+
+  const filteredBulkRows = useMemo(() => {
+    const q = bulkSearch.trim().toLowerCase();
+    return bulkRows
+      .map((row, i) => ({ row, i }))
+      .filter(
+        ({ row }) =>
+          !q ||
+          row.nama.toLowerCase().includes(q) ||
+          row.email.toLowerCase().includes(q) ||
+          row.batch.toLowerCase().includes(q)
+      );
+  }, [bulkRows, bulkSearch]);
 
   const participant = useMemo(() => toParticipant(form), [form]);
   const encoded = useMemo(() => encodeParticipantClient(participant), [participant]);
@@ -115,6 +132,8 @@ export function AdminApp() {
       if (!res.ok) throw new Error(json.error || "Gagal membaca file");
       setBulkRows(json.participants);
       setBulkSelected(new Set(json.participants.map((_: unknown, i: number) => i)));
+      setSendStatus({});
+      setBulkSearch("");
       setBulkProgress(`${json.participants.length} peserta ditemukan.`);
     } catch (e) {
       setBulkProgress(`Gagal: ${(e as Error).message}`);
@@ -123,24 +142,35 @@ export function AdminApp() {
     }
   }
 
+  async function sendOne(index: number) {
+    const row = bulkRows[index];
+    setSendStatus((s) => ({ ...s, [index]: { state: "sending" } }));
+    try {
+      const res = await fetch("/api/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(row.id ? row : { ...row, id: makeCertificateId() }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => null))?.error || "Gagal mengirim");
+      setSendStatus((s) => ({ ...s, [index]: { state: "ok" } }));
+      return true;
+    } catch (e) {
+      setSendStatus((s) => ({ ...s, [index]: { state: "err", message: (e as Error).message } }));
+      return false;
+    }
+  }
+
   async function handleBulkSend() {
     setBulkBusy(true);
-    const rows = bulkRows.filter((_, i) => bulkSelected.has(i));
+    const indices = Array.from(bulkSelected).sort((a, b) => a - b);
     let ok = 0;
     let fail = 0;
-    for (const row of rows) {
+    for (const index of indices) {
+      const row = bulkRows[index];
       setBulkProgress(`Mengirim ke ${row.nama} (${row.email})...`);
-      try {
-        const res = await fetch("/api/send", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(row.id ? row : { ...row, id: makeCertificateId() }),
-        });
-        if (!res.ok) throw new Error();
-        ok++;
-      } catch {
-        fail++;
-      }
+      const success = await sendOne(index);
+      if (success) ok++;
+      else fail++;
     }
     setBulkProgress(`Selesai. Berhasil: ${ok}, gagal: ${fail}.`);
     setBulkBusy(false);
@@ -297,19 +327,39 @@ export function AdminApp() {
               <label className="text-sm font-medium text-gray-700 block mb-2">
                 Upload file Excel (format sama seperti Google Sheet sumber data)
               </label>
-              <input
-                type="file"
-                accept=".xlsx,.xls,.csv"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) handleImport(f);
-                }}
-              />
+              <label className="flex flex-col items-center justify-center gap-1 border-2 border-dashed border-gray-300 rounded-lg py-8 cursor-pointer hover:border-[#FF5400] hover:bg-orange-50/40 transition-colors">
+                <span className="text-sm font-medium text-gray-700">
+                  Klik untuk pilih file, atau drag & drop ke sini
+                </span>
+                <span className="text-xs text-gray-400">.xlsx, .xls, atau .csv</span>
+                <input
+                  type="file"
+                  accept=".xlsx,.xls,.csv"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) handleImport(f);
+                  }}
+                />
+              </label>
               {bulkProgress && <p className="text-sm text-gray-500 mt-2">{bulkProgress}</p>}
             </div>
 
             {bulkRows.length > 0 && (
               <>
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <input
+                    className="input max-w-xs"
+                    placeholder="Cari nama, email, atau batch..."
+                    value={bulkSearch}
+                    onChange={(e) => setBulkSearch(e.target.value)}
+                  />
+                  <span className="text-xs text-gray-500">
+                    {bulkSelected.size} dari {bulkRows.length} peserta dipilih
+                    {bulkSearch && ` · menampilkan ${filteredBulkRows.length} hasil pencarian`}
+                  </span>
+                </div>
+
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
@@ -331,12 +381,13 @@ export function AdminApp() {
                         <th className="py-2 pr-4">Total</th>
                         <th className="py-2 pr-4">Grade</th>
                         <th className="py-2 pr-4">Mode</th>
+                        <th className="py-2 pr-4">Status</th>
                         <th className="py-2 pr-4">Aksi</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {bulkRows.map((row, i) => (
-                        <tr key={i} className="border-b last:border-0">
+                      {filteredBulkRows.map(({ row, i }) => (
+                        <tr key={i} className="border-b last:border-0 hover:bg-gray-50">
                           <td className="py-2 pr-2">
                             <input
                               type="checkbox"
@@ -355,6 +406,9 @@ export function AdminApp() {
                           <td className="py-2 pr-4">{row.total.toFixed(2)}</td>
                           <td className="py-2 pr-4">{row.grade}</td>
                           <td className="py-2 pr-4">{row.sendMode}</td>
+                          <td className="py-2 pr-4">
+                            <StatusBadge status={sendStatus[i]} />
+                          </td>
                           <td className="py-2 pr-4 whitespace-nowrap">
                             <button
                               className="text-[#023047] hover:underline mr-3"
@@ -371,11 +425,18 @@ export function AdminApp() {
                           </td>
                         </tr>
                       ))}
+                      {filteredBulkRows.length === 0 && (
+                        <tr>
+                          <td colSpan={9} className="py-6 text-center text-gray-400">
+                            Tidak ada peserta yang cocok dengan pencarian.
+                          </td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
 
-                <button className="btn-primary" disabled={bulkBusy} onClick={handleBulkSend}>
+                <button className="btn-primary" disabled={bulkBusy || bulkSelected.size === 0} onClick={handleBulkSend}>
                   {bulkBusy ? "Mengirim..." : `Kirim Email ke ${bulkSelected.size} Peserta Terpilih`}
                 </button>
               </>
@@ -391,17 +452,10 @@ export function AdminApp() {
           onSend={async () => {
             const row = bulkRows[previewIndex];
             setBulkProgress(`Mengirim ke ${row.nama} (${row.email})...`);
-            try {
-              const res = await fetch("/api/send", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(row.id ? row : { ...row, id: makeCertificateId() }),
-              });
-              if (!res.ok) throw new Error(await res.text());
-              setBulkProgress(`Email berhasil dikirim ke ${row.nama}.`);
-            } catch (e) {
-              setBulkProgress(`Gagal mengirim ke ${row.nama}: ${(e as Error).message}`);
-            }
+            const success = await sendOne(previewIndex);
+            setBulkProgress(
+              success ? `Email berhasil dikirim ke ${row.nama}.` : `Gagal mengirim ke ${row.nama}.`
+            );
             setPreviewIndex(null);
           }}
         />
@@ -447,6 +501,24 @@ function PreviewModal({
         </div>
       </div>
     </div>
+  );
+}
+
+function StatusBadge({ status }: { status?: { state: "sending" | "ok" | "err"; message?: string } }) {
+  if (!status) return <span className="text-gray-300 text-xs">—</span>;
+  if (status.state === "sending") {
+    return <span className="text-xs font-medium text-amber-600">Mengirim...</span>;
+  }
+  if (status.state === "ok") {
+    return <span className="text-xs font-medium text-green-700 bg-green-50 px-2 py-0.5 rounded-full">Terkirim</span>;
+  }
+  return (
+    <span
+      className="text-xs font-medium text-red-700 bg-red-50 px-2 py-0.5 rounded-full"
+      title={status.message}
+    >
+      Gagal
+    </span>
   );
 }
 

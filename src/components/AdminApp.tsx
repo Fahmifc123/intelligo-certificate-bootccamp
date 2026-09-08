@@ -113,6 +113,14 @@ export function AdminApp() {
     });
   }
 
+  function addModule() {
+    setForm((f) => ({ ...f, modules: [...f.modules, { module: "", weight: 0, score: 0 }] }));
+  }
+
+  function removeModule(index: number) {
+    setForm((f) => ({ ...f, modules: f.modules.filter((_, i) => i !== index) }));
+  }
+
   async function downloadPdf(kind: "certificate" | "performance", data: ParticipantData) {
     const res = await fetch("/api/pdf", {
       method: "POST",
@@ -356,18 +364,30 @@ export function AdminApp() {
               </div>
 
               <div>
-                <h3 className="text-sm font-semibold text-gray-700 mb-2">Skor Modul</h3>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-sm font-semibold text-gray-700">Skor Modul</h3>
+                  <button type="button" className="text-xs text-[#FF5400] hover:underline" onClick={addModule}>
+                    + Tambah Modul
+                  </button>
+                </div>
+                <div className="grid grid-cols-[1fr_5rem_5rem_1.5rem] gap-2 mb-1 text-xs text-gray-400">
+                  <span>Nama Modul</span>
+                  <span>Bobot</span>
+                  <span>Skor</span>
+                  <span></span>
+                </div>
                 <div className="space-y-2">
                   {form.modules.map((m, i) => (
-                    <div key={m.module} className="flex items-center gap-2">
+                    <div key={i} className="grid grid-cols-[1fr_5rem_5rem_1.5rem] gap-2 items-center">
                       <input
-                        className="input flex-1"
+                        className="input"
+                        placeholder="Nama modul"
                         value={m.module}
                         onChange={(e) => updateModule(i, { module: e.target.value })}
                       />
                       <input
                         type="number"
-                        className="input w-20"
+                        className="input"
                         value={m.weight}
                         step={0.05}
                         onChange={(e) => updateModule(i, { weight: Number(e.target.value) })}
@@ -375,17 +395,32 @@ export function AdminApp() {
                       />
                       <input
                         type="number"
-                        className="input w-20"
+                        className="input"
                         value={m.score}
                         onChange={(e) => updateModule(i, { score: Number(e.target.value) })}
                         title="Skor (0-100)"
                       />
+                      <button
+                        type="button"
+                        className="text-gray-400 hover:text-red-600 text-lg leading-none"
+                        onClick={() => removeModule(i)}
+                        title="Hapus modul ini"
+                        disabled={form.modules.length <= 1}
+                      >
+                        ×
+                      </button>
                     </div>
                   ))}
                 </div>
                 <p className="text-xs text-gray-500 mt-2">
                   Total: <strong>{participant.total.toFixed(2)}</strong> &middot; Grade:{" "}
                   <strong>{participant.grade}</strong>
+                  {Math.abs(form.modules.reduce((s, m) => s + m.weight, 0) - 1) > 0.001 && (
+                    <span className="text-amber-600">
+                      {" "}
+                      &middot; total bobot: {form.modules.reduce((s, m) => s + m.weight, 0).toFixed(2)} (idealnya 1.00)
+                    </span>
+                  )}
                 </p>
               </div>
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { DEFAULT_MODULES, computeGrade, computeTotal, type ModuleScore } from "@/lib/grading";
 import { encodeParticipantClient } from "@/lib/encode-client";
 import { makeCertificateId } from "@/lib/id";
@@ -415,9 +415,9 @@ export function AdminApp() {
             </div>
 
             <div className="space-y-4">
-              <PreviewCard title="Certificate" src={`/print/certificate?d=${encoded}`} aspect={10 / 7.5} />
+              <PreviewCard title="Certificate" src={`/print/certificate?d=${encoded}`} kind="certificate" />
               {form.sendMode === "performance" && (
-                <PreviewCard title="Performance Report" src={`/print/performance?d=${encoded}`} aspect={8.27 / 11.69} />
+                <PreviewCard title="Performance Report" src={`/print/performance?d=${encoded}`} kind="performance" />
               )}
             </div>
           </div>
@@ -693,9 +693,9 @@ function PreviewModal({
           </button>
         </div>
         <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
-          <PreviewCard title="Certificate" src={`/print/certificate?d=${encoded}`} aspect={10 / 7.5} />
+          <PreviewCard title="Certificate" src={`/print/certificate?d=${encoded}`} kind="certificate" />
           {row.sendMode === "performance" && (
-            <PreviewCard title="Performance Report" src={`/print/performance?d=${encoded}`} aspect={8.27 / 11.69} />
+            <PreviewCard title="Performance Report" src={`/print/performance?d=${encoded}`} kind="performance" />
           )}
         </div>
         <div className="px-5 pb-5 flex justify-end">
@@ -755,12 +755,44 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-function PreviewCard({ title, src, aspect }: { title: string; src: string; aspect: number }) {
+const CONTENT_PX: Record<"certificate" | "performance", { w: number; h: number }> = {
+  certificate: { w: 960, h: 720 }, // 10in x 7.5in @96dpi
+  performance: { w: 794, h: 1122 }, // 8.27in x 11.69in @96dpi
+};
+
+function PreviewCard({ title, src, kind }: { title: string; src: string; kind: "certificate" | "performance" }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+  const { w: contentW, h: contentH } = CONTENT_PX[kind];
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const update = () => setScale(el.clientWidth / contentW);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [contentW]);
+
   return (
     <div className="bg-white rounded-lg border overflow-hidden">
       <div className="px-4 py-2 border-b text-sm font-medium text-gray-700">{title}</div>
-      <div className="bg-gray-100" style={{ aspectRatio: aspect }}>
-        <iframe src={src} className="w-full h-full border-0" />
+      <div
+        ref={containerRef}
+        className="bg-gray-100 overflow-hidden relative"
+        style={{ height: contentH * scale }}
+      >
+        <iframe
+          src={src}
+          className="border-0"
+          style={{
+            width: contentW,
+            height: contentH,
+            transform: `scale(${scale})`,
+            transformOrigin: "top left",
+          }}
+        />
       </div>
     </div>
   );

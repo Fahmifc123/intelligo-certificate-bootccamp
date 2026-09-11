@@ -164,6 +164,14 @@ export function AdminApp() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Gagal mengirim email");
       setMessage({ type: "ok", text: `Email berhasil dikirim ke ${participant.email}` });
+      setForm((f) => ({
+        ...f,
+        id: makeCertificateId(),
+        nama: "",
+        email: "",
+        photoUrl: "",
+        modules: f.modules.map((m) => ({ ...m, score: 0 })),
+      }));
     } catch (e) {
       setMessage({ type: "err", text: (e as Error).message });
     } finally {
@@ -342,7 +350,21 @@ export function AdminApp() {
                   />
                 </Field>
                 <Field label="Certificate ID">
-                  <input className="input" value={form.id} onChange={(e) => setForm({ ...form, id: e.target.value })} />
+                  <div className="flex gap-2">
+                    <input
+                      className="input"
+                      value={form.id}
+                      onChange={(e) => setForm({ ...form, id: e.target.value })}
+                    />
+                    <button
+                      type="button"
+                      className="btn shrink-0"
+                      title="Acak ulang Certificate ID"
+                      onClick={() => setForm((f) => ({ ...f, id: makeCertificateId() }))}
+                    >
+                      Acak
+                    </button>
+                  </div>
                 </Field>
                 <Field label="Photo URL (untuk performance report)">
                   <input

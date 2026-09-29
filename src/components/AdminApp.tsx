@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { DEFAULT_MODULES, computeGrade, computeTotal, type ModuleScore } from "@/lib/grading";
 import { encodeParticipantClient } from "@/lib/encode-client";
+import { readErrorMessage } from "@/lib/fetch-error";
 import { makeCertificateId } from "@/lib/id";
 import { PreviewCard } from "./PreviewCard";
 import { InvoiceApp } from "./InvoiceApp";
@@ -129,7 +130,7 @@ export function AdminApp() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ kind, data }),
     });
-    if (!res.ok) throw new Error(await res.text());
+    if (!res.ok) throw new Error(await readErrorMessage(res));
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { encodeParticipantClient } from "@/lib/encode-client";
+import { readErrorMessage } from "@/lib/fetch-error";
 import { formatIndonesianDate, makeInvoiceNo, todayInputValue } from "@/lib/invoice-number";
 import { PreviewCard } from "./PreviewCard";
 import type { InvoiceData, InvoiceItem, InvoiceTermin } from "@/lib/types";
@@ -23,10 +24,7 @@ function emptyInvoice(): InvoiceData {
     bankName: "Bank BCA",
     accountNumber: "2820297663",
     accountName: "Muhammad Fahmi",
-    notes: [
-      "Mohon konfirmasi pembayaran ke tim Intelligo ID.",
-      "Bukti potong PPh 23 mohon diberikan setelah pembayaran.",
-    ],
+    notes: ["Mohon konfirmasi pembayaran ke tim Intelligo ID."],
   };
 }
 
@@ -128,7 +126,7 @@ export function InvoiceApp() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ kind: "invoice", data: invoice }),
       });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw new Error(await readErrorMessage(res));
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");

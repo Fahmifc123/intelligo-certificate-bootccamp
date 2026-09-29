@@ -13,24 +13,29 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid kind" }, { status: 400 });
   }
 
-  const origin = await getOrigin();
-  const encoded = encodeParticipant(body.data);
-  const pdf = await renderPdf(origin, body.kind, encoded);
+  try {
+    const origin = await getOrigin();
+    const encoded = encodeParticipant(body.data);
+    const pdf = await renderPdf(origin, body.kind, encoded);
 
-  let filename: string;
-  if (body.kind === "certificate") {
-    filename = `${(body.data as ParticipantData).nama} - Certificate.pdf`;
-  } else if (body.kind === "performance") {
-    filename = `${(body.data as ParticipantData).nama} - Performance Report.pdf`;
-  } else {
-    const invoice = body.data as InvoiceData;
-    filename = `Invoice ${invoice.invoiceNo.replace(/\//g, "-")} - ${invoice.clientName}.pdf`;
+    let filename: string;
+    if (body.kind === "certificate") {
+      filename = `${(body.data as ParticipantData).nama} - Certificate.pdf`;
+    } else if (body.kind === "performance") {
+      filename = `${(body.data as ParticipantData).nama} - Performance Report.pdf`;
+    } else {
+      const invoice = body.data as InvoiceData;
+      filename = `Invoice ${invoice.invoiceNo.replace(/\//g, "-")} - ${invoice.clientName}.pdf`;
+    }
+
+    return new NextResponse(new Uint8Array(pdf), {
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `attachment; filename="${filename}"`,
+      },
+    });
+  } catch (e) {
+    console.error("PDF generation failed:", e);
+    return NextResponse.json({ error: `Gagal membuat PDF: ${(e as Error).message}` }, { status: 500 });
   }
-
-  return new NextResponse(new Uint8Array(pdf), {
-    headers: {
-      "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="${filename}"`,
-    },
-  });
 }

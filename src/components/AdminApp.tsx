@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { DEFAULT_MODULES, computeGrade, computeTotal, type ModuleScore } from "@/lib/grading";
 import { encodeParticipantClient } from "@/lib/encode-client";
 import { makeCertificateId } from "@/lib/id";
+import { PreviewCard } from "./PreviewCard";
+import { InvoiceApp } from "./InvoiceApp";
 import type { ParticipantData, SendMode } from "@/lib/types";
 
 type FormState = Omit<ParticipantData, "modules" | "total" | "grade"> & {
@@ -29,7 +31,7 @@ function toParticipant(f: FormState): ParticipantData {
   return { ...f, total, grade: computeGrade(total) };
 }
 
-type Tab = "manual" | "bulk" | "history";
+type Tab = "manual" | "bulk" | "history" | "invoice";
 
 type CertificateRecord = {
   id: string;
@@ -323,7 +325,18 @@ export function AdminApp() {
           >
             Riwayat Sertifikat
           </button>
+          <div className="w-px bg-gray-300 mx-1" />
+          <button
+            onClick={() => setTab("invoice")}
+            className={`px-4 py-2 rounded-md text-sm font-medium ${
+              tab === "invoice" ? "bg-[#023047] text-white" : "bg-white text-gray-600 border"
+            }`}
+          >
+            Invoice
+          </button>
         </div>
+
+        {tab === "invoice" && <InvoiceApp />}
 
         {tab === "manual" && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -812,45 +825,3 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-const CONTENT_PX: Record<"certificate" | "performance", { w: number; h: number }> = {
-  certificate: { w: 960, h: 720 }, // 10in x 7.5in @96dpi
-  performance: { w: 794, h: 1122 }, // 8.27in x 11.69in @96dpi
-};
-
-function PreviewCard({ title, src, kind }: { title: string; src: string; kind: "certificate" | "performance" }) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(1);
-  const { w: contentW, h: contentH } = CONTENT_PX[kind];
-
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const update = () => setScale(el.clientWidth / contentW);
-    update();
-    const ro = new ResizeObserver(update);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [contentW]);
-
-  return (
-    <div className="bg-white rounded-lg border overflow-hidden">
-      <div className="px-4 py-2 border-b text-sm font-medium text-gray-700">{title}</div>
-      <div
-        ref={containerRef}
-        className="bg-gray-100 overflow-hidden relative"
-        style={{ height: contentH * scale }}
-      >
-        <iframe
-          src={src}
-          className="border-0"
-          style={{
-            width: contentW,
-            height: contentH,
-            transform: `scale(${scale})`,
-            transformOrigin: "top left",
-          }}
-        />
-      </div>
-    </div>
-  );
-}

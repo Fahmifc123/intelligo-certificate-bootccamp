@@ -37,6 +37,18 @@ async function ensureSchema(): Promise<void> {
         sent_status TEXT NOT NULL DEFAULT 'pending',
         sent_error TEXT
       );
+
+      CREATE TABLE IF NOT EXISTS invoices (
+        invoice_no TEXT PRIMARY KEY,
+        client_name TEXT NOT NULL,
+        client_email TEXT,
+        total NUMERIC NOT NULL,
+        data JSONB NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        sent_at TIMESTAMPTZ,
+        sent_status TEXT NOT NULL DEFAULT 'pending',
+        sent_error TEXT
+      );
     `).then(() => undefined);
   }
   await schemaReady;
@@ -114,6 +126,60 @@ export async function recordSendAttempt(params: {
       params.total,
       params.grade,
       JSON.stringify(params.modules),
+      params.status,
+      params.error ?? null,
+    ]
+  );
+}
+
+export type InvoiceRecord = {
+  invoice_no: string;
+  client_name: string;
+  client_email: string | null;
+  total: number;
+  data: unknown;
+  created_at: string;
+  sent_at: string | null;
+  sent_status: "pending" | "sent" | "failed";
+  sent_error: string | null;
+};
+
+export async function listInvoices(): Promise<InvoiceRecord[]> {
+  await ensureSchema();
+  const { rows } = await getPool().query<InvoiceRecord>(
+    "SELECT * FROM invoices ORDER BY created_at DESC LIMIT 500"
+  );
+  return rows;
+}
+
+export async function recordInvoiceSendAttempt(params: {
+  invoiceNo: string;
+  clientName: string;
+  clientEmail?: string;
+  total: number;
+  data: unknown;
+  status: "sent" | "failed";
+  error?: string;
+}): Promise<void> {
+  await ensureSchema();
+  await getPool().query(
+    `INSERT INTO invoices
+      (invoice_no, client_name, client_email, total, data, sent_at, sent_status, sent_error)
+     VALUES ($1,$2,$3,$4,$5, now(), $6, $7)
+     ON CONFLICT (invoice_no) DO UPDATE SET
+       client_name = EXCLUDED.client_name,
+       client_email = EXCLUDED.client_email,
+       total = EXCLUDED.total,
+       data = EXCLUDED.data,
+       sent_at = now(),
+       sent_status = EXCLUDED.sent_status,
+       sent_error = EXCLUDED.sent_error`,
+    [
+      params.invoiceNo,
+      params.clientName,
+      params.clientEmail ?? null,
+      params.total,
+      JSON.stringify(params.data),
       params.status,
       params.error ?? null,
     ]

@@ -15,3 +15,45 @@ export type ParticipantData = {
   total: number;
   grade: string;
 };
+
+export type InvoiceItem = {
+  description: string;
+  qty: number;
+  unitPrice: number;
+};
+
+export type InvoiceTermin = {
+  termin: string;
+  keterangan: string;
+  tanggal: string;
+  jumlah: number;
+};
+
+export type InvoiceData = {
+  invoiceNo: string;
+  date: string;
+  paymentMethod: string;
+  clientName: string;
+  clientPIC: string;
+  clientAddress: string;
+  clientEmail: string;
+  items: InvoiceItem[];
+  totalLabel: string;
+  termins: InvoiceTermin[];
+  bankName: string;
+  accountNumber: string;
+  accountName: string;
+  notes: string[];
+};
+
+export function invoiceSubtotal(item: InvoiceItem): number {
+  return item.qty * item.unitPrice;
+}
+
+export function invoiceTotal(data: InvoiceData): number {
+  return data.items.reduce((s, it) => s + invoiceSubtotal(it), 0);
+}
+
+export function invoiceProgramTotal(data: InvoiceData): number {
+  return data.termins.reduce((s, t) => s + t.jumlah, 0);
+}

@@ -17,11 +17,12 @@ async function launchBrowser(): Promise<Browser> {
   }) as unknown as Promise<Browser>;
 }
 
-export type PdfKind = "certificate" | "performance";
+export type PdfKind = "certificate" | "performance" | "invoice";
 
 const PAGE_SIZE: Record<PdfKind, { width: string; height: string }> = {
   certificate: { width: "10in", height: "7.5in" },
   performance: { width: "8.27in", height: "11.69in" },
+  invoice: { width: "8.27in", height: "11.69in" },
 };
 
 export async function renderPdf(baseUrl: string, kind: PdfKind, encoded: string): Promise<Buffer> {

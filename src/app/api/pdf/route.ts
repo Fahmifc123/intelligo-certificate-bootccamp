@@ -2,14 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { encodeParticipant } from "@/lib/encode";
 import { renderPdf, type PdfKind } from "@/lib/pdf";
 import { getOrigin } from "@/lib/request-origin";
-import type { ParticipantData } from "@/lib/types";
+import type { InvoiceData, ParticipantData } from "@/lib/types";
 
 export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
-  const body = (await req.json()) as { kind: PdfKind; data: ParticipantData };
+  const body = (await req.json()) as { kind: PdfKind; data: ParticipantData | InvoiceData };
 
-  if (body.kind !== "certificate" && body.kind !== "performance") {
+  if (body.kind !== "certificate" && body.kind !== "performance" && body.kind !== "invoice") {
     return NextResponse.json({ error: "Invalid kind" }, { status: 400 });
   }
 
@@ -17,10 +17,15 @@ export async function POST(req: NextRequest) {
   const encoded = encodeParticipant(body.data);
   const pdf = await renderPdf(origin, body.kind, encoded);
 
-  const filename =
-    body.kind === "certificate"
-      ? `${body.data.nama} - Certificate.pdf`
-      : `${body.data.nama} - Performance Report.pdf`;
+  let filename: string;
+  if (body.kind === "certificate") {
+    filename = `${(body.data as ParticipantData).nama} - Certificate.pdf`;
+  } else if (body.kind === "performance") {
+    filename = `${(body.data as ParticipantData).nama} - Performance Report.pdf`;
+  } else {
+    const invoice = body.data as InvoiceData;
+    filename = `Invoice ${invoice.invoiceNo.replace(/\//g, "-")} - ${invoice.clientName}.pdf`;
+  }
 
   return new NextResponse(new Uint8Array(pdf), {
     headers: {

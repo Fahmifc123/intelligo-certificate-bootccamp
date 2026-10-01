@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { encodeParticipantClient } from "@/lib/encode-client";
 import { readErrorMessage } from "@/lib/fetch-error";
-import { formatIndonesianDate, makeInvoiceNo, todayInputValue } from "@/lib/invoice-number";
+import { formatIndonesianDate, makeInvoiceNo, nextAvailableSeq, todayInputValue } from "@/lib/invoice-number";
 import { PreviewCard } from "./PreviewCard";
 import type { InvoiceData, InvoiceItem, InvoiceTermin } from "@/lib/types";
 import { invoiceTotal } from "@/lib/types";
@@ -60,9 +60,32 @@ export function InvoiceApp() {
   const [historyConfigured, setHistoryConfigured] = useState(true);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [historyPreview, setHistoryPreview] = useState<InvoiceData | null>(null);
+  const [knownInvoiceNos, setKnownInvoiceNos] = useState<string[]>([]);
 
   const total = useMemo(() => invoiceTotal(invoice), [invoice]);
   const encoded = useMemo(() => encodeParticipantClient(invoice), [invoice]);
+  const isDuplicateNo = knownInvoiceNos.includes(invoice.invoiceNo);
+
+  // On first load, pull existing invoice numbers so the suggested number
+  // doesn't collide with one that was already sent (even after a refresh).
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch("/api/invoices");
+        const json = await res.json();
+        if (!res.ok || !json.configured) return;
+        const nos: string[] = json.invoices.map((r: InvoiceRecord) => r.invoice_no);
+        setKnownInvoiceNos(nos);
+        const next = nextAvailableSeq(nos, categoryCode, dateInput);
+        setSeq(next);
+        setInvoice((inv) => ({ ...inv, invoiceNo: makeInvoiceNo(categoryCode, dateInput, next) }));
+      } catch {
+        // ignore — fall back to the default seq of 1
+      }
+    }, 0);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function regenerateNumber(nextSeq = seq) {
     setInvoice((inv) => ({
@@ -136,6 +159,12 @@ export function InvoiceApp() {
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
+      setKnownInvoiceNos((nos) => [...nos, invoice.invoiceNo]);
+      setSeq((s) => {
+        const next = s + 1;
+        setInvoice((inv) => ({ ...inv, invoiceNo: makeInvoiceNo(categoryCode, dateInput, next) }));
+        return next;
+      });
     } catch (e) {
       setMessage({ type: "err", text: `Gagal membuat PDF: ${(e as Error).message}` });
     } finally {
@@ -155,6 +184,7 @@ export function InvoiceApp() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Gagal mengirim email");
       setMessage({ type: "ok", text: `Invoice berhasil dikirim ke ${invoice.clientEmail}` });
+      setKnownInvoiceNos((nos) => [...nos, invoice.invoiceNo]);
       setSeq((s) => {
         const next = s + 1;
         setInvoice((inv) => ({
@@ -245,7 +275,7 @@ export function InvoiceApp() {
               <Field label="No. Invoice">
                 <div className="flex gap-2">
                   <input
-                    className="input"
+                    className={`input ${isDuplicateNo ? "border-red-400" : ""}`}
                     value={invoice.invoiceNo}
                     onChange={(e) => setInvoice({ ...invoice, invoiceNo: e.target.value })}
                   />
@@ -253,6 +283,11 @@ export function InvoiceApp() {
                     Generate
                   </button>
                 </div>
+                {isDuplicateNo && (
+                  <p className="text-xs text-red-600 mt-1">
+                    Nomor ini sudah pernah dipakai (download/kirim sebelumnya) — ganti atau klik Generate.
+                  </p>
+                )}
               </Field>
               <Field label="Nomor Urut">
                 <input

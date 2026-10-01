@@ -2,30 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
 import { encodeParticipant } from "@/lib/encode";
 import { buildInvoiceEmailHtml, buildInvoiceEmailSubject } from "@/lib/invoice-email-template";
-import { isDbConfigured, recordInvoiceSendAttempt } from "@/lib/db";
+import { saveInvoiceAttempt as saveAttempt } from "@/lib/invoice-history";
 import { renderPdf } from "@/lib/pdf";
 import { getOrigin } from "@/lib/request-origin";
 import type { InvoiceData } from "@/lib/types";
-import { invoiceTotal } from "@/lib/types";
 
 export const maxDuration = 60;
-
-async function saveAttempt(data: InvoiceData, status: "sent" | "failed", error?: string) {
-  if (!isDbConfigured()) return;
-  try {
-    await recordInvoiceSendAttempt({
-      invoiceNo: data.invoiceNo,
-      clientName: data.clientName,
-      clientEmail: data.clientEmail,
-      total: invoiceTotal(data),
-      data,
-      status,
-      error,
-    });
-  } catch (e) {
-    console.error("Failed to record invoice history:", e);
-  }
-}
 
 export async function POST(req: NextRequest) {
   const data = (await req.json()) as InvoiceData;

@@ -158,21 +158,27 @@ export async function recordInvoiceSendAttempt(params: {
   clientEmail?: string;
   total: number;
   data: unknown;
-  status: "sent" | "failed";
+  status: "pending" | "sent" | "failed";
   error?: string;
 }): Promise<void> {
   await ensureSchema();
+  // Once an invoice has actually been sent, a later "pending" record (e.g. a
+  // re-download) must not downgrade its status or clear sent_at.
   await getPool().query(
     `INSERT INTO invoices
       (invoice_no, client_name, client_email, total, data, sent_at, sent_status, sent_error)
-     VALUES ($1,$2,$3,$4,$5, now(), $6, $7)
+     VALUES ($1,$2,$3,$4,$5, CASE WHEN $6 = 'sent' THEN now() ELSE NULL END, $6, $7)
      ON CONFLICT (invoice_no) DO UPDATE SET
        client_name = EXCLUDED.client_name,
        client_email = EXCLUDED.client_email,
        total = EXCLUDED.total,
        data = EXCLUDED.data,
-       sent_at = now(),
-       sent_status = EXCLUDED.sent_status,
+       sent_at = CASE
+         WHEN EXCLUDED.sent_status = 'sent' THEN now()
+         WHEN invoices.sent_status = 'sent' THEN invoices.sent_at
+         ELSE NULL
+       END,
+       sent_status = CASE WHEN invoices.sent_status = 'sent' THEN invoices.sent_status ELSE EXCLUDED.sent_status END,
        sent_error = EXCLUDED.sent_error`,
     [
       params.invoiceNo,

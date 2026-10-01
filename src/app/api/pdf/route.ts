@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { encodeParticipant } from "@/lib/encode";
+import { saveInvoiceAttempt } from "@/lib/invoice-history";
 import { renderPdf, type PdfKind } from "@/lib/pdf";
 import { getOrigin } from "@/lib/request-origin";
 import type { InvoiceData, ParticipantData } from "@/lib/types";
@@ -26,6 +27,7 @@ export async function POST(req: NextRequest) {
     } else {
       const invoice = body.data as InvoiceData;
       filename = `Invoice ${invoice.invoiceNo.replace(/\//g, "-")} - ${invoice.clientName}.pdf`;
+      await saveInvoiceAttempt(invoice, "pending");
     }
 
     return new NextResponse(new Uint8Array(pdf), {

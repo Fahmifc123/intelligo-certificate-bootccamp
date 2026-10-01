@@ -568,7 +568,7 @@ export function InvoiceApp() {
                         </span>
                       ) : (
                         <span className="text-xs font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full">
-                          Pending
+                          Belum Dikirim
                         </span>
                       )}
                     </td>

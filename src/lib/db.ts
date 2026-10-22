@@ -49,6 +49,18 @@ async function ensureSchema(): Promise<void> {
         sent_status TEXT NOT NULL DEFAULT 'pending',
         sent_error TEXT
       );
+
+      CREATE TABLE IF NOT EXISTS receipts (
+        receipt_no TEXT PRIMARY KEY,
+        received_from TEXT NOT NULL,
+        client_email TEXT,
+        amount NUMERIC NOT NULL,
+        data JSONB NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        sent_at TIMESTAMPTZ,
+        sent_status TEXT NOT NULL DEFAULT 'pending',
+        sent_error TEXT
+      );
     `).then(() => undefined);
   }
   await schemaReady;
@@ -185,6 +197,64 @@ export async function recordInvoiceSendAttempt(params: {
       params.clientName,
       params.clientEmail ?? null,
       params.total,
+      JSON.stringify(params.data),
+      params.status,
+      params.error ?? null,
+    ]
+  );
+}
+
+export type ReceiptRecord = {
+  receipt_no: string;
+  received_from: string;
+  client_email: string | null;
+  amount: number;
+  data: unknown;
+  created_at: string;
+  sent_at: string | null;
+  sent_status: "pending" | "sent" | "failed";
+  sent_error: string | null;
+};
+
+export async function listReceipts(): Promise<ReceiptRecord[]> {
+  await ensureSchema();
+  const { rows } = await getPool().query<ReceiptRecord>(
+    "SELECT * FROM receipts ORDER BY created_at DESC LIMIT 500"
+  );
+  return rows;
+}
+
+export async function recordReceiptSendAttempt(params: {
+  receiptNo: string;
+  receivedFrom: string;
+  clientEmail?: string;
+  amount: number;
+  data: unknown;
+  status: "pending" | "sent" | "failed";
+  error?: string;
+}): Promise<void> {
+  await ensureSchema();
+  await getPool().query(
+    `INSERT INTO receipts
+      (receipt_no, received_from, client_email, amount, data, sent_at, sent_status, sent_error)
+     VALUES ($1,$2,$3,$4,$5, CASE WHEN $6 = 'sent' THEN now() ELSE NULL END, $6, $7)
+     ON CONFLICT (receipt_no) DO UPDATE SET
+       received_from = EXCLUDED.received_from,
+       client_email = EXCLUDED.client_email,
+       amount = EXCLUDED.amount,
+       data = EXCLUDED.data,
+       sent_at = CASE
+         WHEN EXCLUDED.sent_status = 'sent' THEN now()
+         WHEN receipts.sent_status = 'sent' THEN receipts.sent_at
+         ELSE NULL
+       END,
+       sent_status = CASE WHEN receipts.sent_status = 'sent' THEN receipts.sent_status ELSE EXCLUDED.sent_status END,
+       sent_error = EXCLUDED.sent_error`,
+    [
+      params.receiptNo,
+      params.receivedFrom,
+      params.clientEmail ?? null,
+      params.amount,
       JSON.stringify(params.data),
       params.status,
       params.error ?? null,

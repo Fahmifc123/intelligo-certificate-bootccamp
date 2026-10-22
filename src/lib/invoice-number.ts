@@ -22,6 +22,14 @@ export function makeInvoiceNo(categoryCode: string, dateStr: string, seq: number
   return `INTL/INV/${categoryCode.trim().toUpperCase() || "CT"}/${roman}/${year}_${seqStr}`;
 }
 
+/** dateStr: "YYYY-MM-DD" -> "KWT/VIII/2026_003" style receipt number */
+export function makeReceiptNo(dateStr: string, seq: number): string {
+  const [year, month] = dateStr.split("-").map(Number);
+  const roman = ROMAN_MONTHS[(month || 1) - 1] ?? "I";
+  const seqStr = String(seq).padStart(3, "0");
+  return `INTL/KWT/${roman}/${year}_${seqStr}`;
+}
+
 /** dateStr: "YYYY-MM-DD" -> "1 Agustus 2026" */
 export function formatIndonesianDate(dateStr: string): string {
   const [year, month, day] = dateStr.split("-").map(Number);
@@ -55,4 +63,18 @@ export function todayInputValue(): string {
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const dd = String(d.getDate()).padStart(2, "0");
   return `${d.getFullYear()}-${mm}-${dd}`;
+}
+
+export function nextAvailableReceiptSeq(existingReceiptNos: string[], dateStr: string): number {
+  const [year, month] = dateStr.split("-").map(Number);
+  const roman = ROMAN_MONTHS[(month || 1) - 1] ?? "I";
+  const prefix = `INTL/KWT/${roman}/${year}_`;
+  let max = 0;
+  for (const no of existingReceiptNos) {
+    if (no.startsWith(prefix)) {
+      const n = parseInt(no.slice(prefix.length), 10);
+      if (Number.isFinite(n) && n > max) max = n;
+    }
+  }
+  return max + 1;
 }

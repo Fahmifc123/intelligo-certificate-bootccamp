@@ -2,12 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 
-export type PreviewKind = "certificate" | "performance" | "invoice";
+export type PreviewKind = "certificate" | "performance" | "invoice" | "receipt";
 
 const CONTENT_PX: Record<PreviewKind, { w: number; h: number }> = {
   certificate: { w: 960, h: 720 }, // 10in x 7.5in @96dpi
   performance: { w: 794, h: 1122 }, // 8.27in x 11.69in @96dpi
   invoice: { w: 794, h: 1122 }, // 8.27in x 11.69in @96dpi
+  receipt: { w: 794, h: 560 }, // 8.27in x 5.83in @96dpi
 };
 
 export function PreviewCard({ title, src, kind }: { title: string; src: string; kind: PreviewKind }) {

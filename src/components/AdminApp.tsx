@@ -7,6 +7,7 @@ import { readErrorMessage } from "@/lib/fetch-error";
 import { makeCertificateId } from "@/lib/id";
 import { PreviewCard } from "./PreviewCard";
 import { InvoiceApp } from "./InvoiceApp";
+import { ReceiptApp } from "./ReceiptApp";
 import type { ParticipantData, SendMode } from "@/lib/types";
 
 type FormState = Omit<ParticipantData, "modules" | "total" | "grade"> & {
@@ -32,7 +33,7 @@ function toParticipant(f: FormState): ParticipantData {
   return { ...f, total, grade: computeGrade(total) };
 }
 
-type Tab = "manual" | "bulk" | "history" | "invoice";
+type Tab = "manual" | "bulk" | "history" | "invoice" | "receipt";
 
 type CertificateRecord = {
   id: string;
@@ -335,9 +336,18 @@ export function AdminApp() {
           >
             Invoice
           </button>
+          <button
+            onClick={() => setTab("receipt")}
+            className={`px-4 py-2 rounded-md text-sm font-medium ${
+              tab === "receipt" ? "bg-[#023047] text-white" : "bg-white text-gray-600 border"
+            }`}
+          >
+            Bukti Pembayaran
+          </button>
         </div>
 
         {tab === "invoice" && <InvoiceApp />}
+        {tab === "receipt" && <ReceiptApp />}
 
         {tab === "manual" && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

@@ -57,3 +57,16 @@ export function invoiceTotal(data: InvoiceData): number {
 export function invoiceProgramTotal(data: InvoiceData): number {
   return data.termins.reduce((s, t) => s + t.jumlah, 0);
 }
+
+export type ReceiptData = {
+  receiptNo: string;
+  date: string;
+  receivedFrom: string;
+  receivedEmail: string;
+  amount: number;
+  forPayment: string;
+  paymentMethod: string;
+  relatedInvoiceNo?: string;
+  signerName: string;
+  signerTitle: string;
+};

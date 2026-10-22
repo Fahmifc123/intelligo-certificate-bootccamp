@@ -91,7 +91,12 @@ export function ReceiptTemplate({ data }: { data: ReceiptData }) {
         <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "0.4in" }}>
           <div style={{ textAlign: "center", width: "2.2in" }}>
             <div>Bandung, {data.date}</div>
-            <div style={{ height: "0.55in" }} />
+            <div style={{ height: "0.55in", display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+              {data.signerName.trim().toLowerCase() === "muhammad fahmi" && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src="/brand/signature.png" alt="" style={{ height: "0.5in" }} />
+              )}
+            </div>
             <div style={{ borderTop: "1px solid #111827", paddingTop: "4px", fontWeight: 700 }}>
               {data.signerName}
             </div>

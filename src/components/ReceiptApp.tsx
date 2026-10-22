@@ -21,7 +21,7 @@ function emptyReceipt(): ReceiptData {
     paymentMethod: "Transfer Bank BCA",
     relatedInvoiceNo: "",
     signerName: "Muhammad Fahmi",
-    signerTitle: "Direktur",
+    signerTitle: "Head of Learning",
   };
 }
 

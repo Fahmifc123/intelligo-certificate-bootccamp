@@ -26,6 +26,7 @@ function emptyForm(): FormState {
     photoUrl: "",
     sendMode: "performance",
     certificateType: "PARTICIPANT",
+    location: "",
     includeScore: true,
     modules: DEFAULT_MODULES.map((m) => ({ ...m, score: 0 })),
   };
@@ -89,6 +90,7 @@ type CertificateRecord = {
   revoke_reason: string | null;
   revoked_at: string | null;
   certificate_type: string | null;
+  location: string | null;
 };
 
 function recordToParticipant(r: CertificateRecord): ParticipantData {
@@ -105,6 +107,7 @@ function recordToParticipant(r: CertificateRecord): ParticipantData {
     total: Number(r.total),
     grade: r.grade,
     certificateType: r.certificate_type ?? undefined,
+    location: r.location ?? undefined,
   };
 }
 
@@ -462,6 +465,14 @@ export function AdminApp() {
                     placeholder="PARTICIPANT"
                     value={form.certificateType ?? ""}
                     onChange={(e) => setForm({ ...form, certificateType: e.target.value })}
+                  />
+                </Field>
+                <Field label='Lokasi (opsional, "Organized by Intelligo ID in ...")'>
+                  <input
+                    className="input"
+                    placeholder="Jakarta"
+                    value={form.location ?? ""}
+                    onChange={(e) => setForm({ ...form, location: e.target.value })}
                   />
                 </Field>
                 <Field label="Pelaksanaan">

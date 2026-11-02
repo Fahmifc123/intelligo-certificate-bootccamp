@@ -16,6 +16,8 @@ export type ParticipantData = {
   grade: string;
   /** The banner label on the certificate, e.g. "PARTICIPANT" or "COMPLETION". Defaults to "PARTICIPANT" when blank. */
   certificateType?: string;
+  /** City/location shown as "Organized by Intelligo ID in <location>". Omitted from the PDF when blank. */
+  location?: string;
 };
 
 export type InvoiceItem = {

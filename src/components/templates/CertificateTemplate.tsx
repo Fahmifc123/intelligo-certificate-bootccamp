@@ -78,6 +78,7 @@ export function CertificateTemplate({ data }: { data: ParticipantData }) {
         {data.pelaksanaan && (
           <div>{data.pelaksanaan.includes(" to ") ? "held from" : "held on"} {data.pelaksanaan}</div>
         )}
+        {data.location && <div>Organized by Intelligo ID in {data.location}</div>}
       </div>
 
       {/* Score / Grade / Certificate ID */}

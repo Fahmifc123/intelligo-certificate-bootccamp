@@ -66,6 +66,7 @@ async function ensureSchema(): Promise<void> {
       ALTER TABLE certificates ADD COLUMN IF NOT EXISTS revoke_reason TEXT;
       ALTER TABLE certificates ADD COLUMN IF NOT EXISTS revoked_at TIMESTAMPTZ;
       ALTER TABLE certificates ADD COLUMN IF NOT EXISTS certificate_type TEXT NOT NULL DEFAULT 'PARTICIPANT';
+      ALTER TABLE certificates ADD COLUMN IF NOT EXISTS location TEXT NOT NULL DEFAULT '';
     `).then(() => undefined);
   }
   await schemaReady;
@@ -91,6 +92,7 @@ export type CertificateRecord = {
   revoke_reason: string | null;
   revoked_at: string | null;
   certificate_type: string;
+  location: string;
 };
 
 export async function listCertificates(): Promise<CertificateRecord[]> {
@@ -142,6 +144,7 @@ export async function recordSendAttempt(params: {
   grade: string;
   modules: unknown;
   certificateType?: string;
+  location?: string;
   status: "pending" | "sent" | "failed";
   error?: string;
 }): Promise<void> {
@@ -150,8 +153,8 @@ export async function recordSendAttempt(params: {
   // downgrade a certificate that was already actually sent.
   await getPool().query(
     `INSERT INTO certificates
-      (id, nama, email, judul, batch, pelaksanaan, photo_url, send_mode, total, grade, modules, certificate_type, sent_at, sent_status, sent_error)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12, CASE WHEN $13 = 'pending' THEN NULL ELSE now() END, $13, $14)
+      (id, nama, email, judul, batch, pelaksanaan, photo_url, send_mode, total, grade, modules, certificate_type, location, sent_at, sent_status, sent_error)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13, CASE WHEN $14 = 'pending' THEN NULL ELSE now() END, $14, $15)
      ON CONFLICT (id) DO UPDATE SET
        nama = EXCLUDED.nama,
        email = EXCLUDED.email,
@@ -164,6 +167,7 @@ export async function recordSendAttempt(params: {
        grade = EXCLUDED.grade,
        modules = EXCLUDED.modules,
        certificate_type = EXCLUDED.certificate_type,
+       location = EXCLUDED.location,
        sent_at = CASE
          WHEN certificates.sent_status = 'sent' THEN certificates.sent_at
          WHEN EXCLUDED.sent_status = 'pending' THEN certificates.sent_at
@@ -184,6 +188,7 @@ export async function recordSendAttempt(params: {
       params.grade,
       JSON.stringify(params.modules),
       params.certificateType?.trim() || "PARTICIPANT",
+      params.location?.trim() ?? "",
       params.status,
       params.error ?? null,
     ]

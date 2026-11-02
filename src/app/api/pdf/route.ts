@@ -64,6 +64,7 @@ export async function POST(req: NextRequest) {
           grade: data.grade,
           modules: data.modules,
           certificateType: data.certificateType,
+          location: data.location,
           status: "pending",
         });
       }

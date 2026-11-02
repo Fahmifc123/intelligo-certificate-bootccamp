@@ -30,6 +30,32 @@ function emptyForm(): FormState {
   };
 }
 
+const PELAKSANAAN_MONTHS = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
+
+function formatPelaksanaanDate(iso: string): string {
+  const d = new Date(`${iso}T00:00:00`);
+  return `${d.getDate()} ${PELAKSANAAN_MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+// Builds the "Pelaksanaan" text from a date range, omitting "to <end>"
+// entirely when it's a single full day (start === end or no end given).
+function formatPelaksanaanRange(start: string, end: string): string {
+  if (!start) return "";
+  if (!end || end === start) return formatPelaksanaanDate(start);
+
+  const sd = new Date(`${start}T00:00:00`);
+  const ed = new Date(`${end}T00:00:00`);
+  if (sd.getFullYear() === ed.getFullYear() && sd.getMonth() === ed.getMonth()) {
+    return `${sd.getDate()} to ${ed.getDate()} ${PELAKSANAAN_MONTHS[sd.getMonth()]} ${sd.getFullYear()}`;
+  }
+  if (sd.getFullYear() === ed.getFullYear()) {
+    return `${sd.getDate()} ${PELAKSANAAN_MONTHS[sd.getMonth()]} to ${ed.getDate()} ${PELAKSANAAN_MONTHS[ed.getMonth()]} ${sd.getFullYear()}`;
+  }
+  return `${formatPelaksanaanDate(start)} to ${formatPelaksanaanDate(end)}`;
+}
+
 // An empty grade string is the signal (certificate template + history table)
 // that this participant has no score, as opposed to a computed "Poor".
 function toParticipant(f: FormState): ParticipantData {
@@ -82,6 +108,9 @@ function recordToParticipant(r: CertificateRecord): ParticipantData {
 export function AdminApp() {
   const [tab, setTab] = useState<Tab>("manual");
   const [form, setForm] = useState<FormState>(emptyForm());
+  const [pelaksanaanStart, setPelaksanaanStart] = useState("");
+  const [pelaksanaanEnd, setPelaksanaanEnd] = useState("");
+  const [oneDayOnly, setOneDayOnly] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: "ok" | "err"; text: string } | null>(null);
 
@@ -432,6 +461,56 @@ export function AdminApp() {
                     onChange={(e) => setForm({ ...form, pelaksanaan: e.target.value })}
                   />
                 </Field>
+                <div className="col-span-2 -mt-1">
+                  <div className="flex items-end gap-2 flex-wrap">
+                    <Field label="Tanggal Mulai">
+                      <input
+                        type="date"
+                        className="input"
+                        value={pelaksanaanStart}
+                        onChange={(e) => {
+                          const start = e.target.value;
+                          setPelaksanaanStart(start);
+                          const end = oneDayOnly ? start : pelaksanaanEnd;
+                          if (start) setForm((f) => ({ ...f, pelaksanaan: formatPelaksanaanRange(start, end) }));
+                        }}
+                      />
+                    </Field>
+                    {!oneDayOnly && (
+                      <Field label="Tanggal Selesai">
+                        <input
+                          type="date"
+                          className="input"
+                          value={pelaksanaanEnd}
+                          onChange={(e) => {
+                            const end = e.target.value;
+                            setPelaksanaanEnd(end);
+                            if (pelaksanaanStart)
+                              setForm((f) => ({ ...f, pelaksanaan: formatPelaksanaanRange(pelaksanaanStart, end) }));
+                          }}
+                        />
+                      </Field>
+                    )}
+                    <label className="flex items-center gap-1.5 text-xs text-gray-600 pb-2.5">
+                      <input
+                        type="checkbox"
+                        checked={oneDayOnly}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setOneDayOnly(checked);
+                          if (checked && pelaksanaanStart) {
+                            setPelaksanaanEnd("");
+                            setForm((f) => ({ ...f, pelaksanaan: formatPelaksanaanRange(pelaksanaanStart, pelaksanaanStart) }));
+                          }
+                        }}
+                      />
+                      1 hari penuh (tanpa &quot;to&quot;)
+                    </label>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1">
+                    Opsional, isi dari tanggal untuk mengisi otomatis field Pelaksanaan di atas.
+                  </p>
+                </div>
                 <Field label="Certificate ID">
                   <div className="flex gap-2">
                     <input

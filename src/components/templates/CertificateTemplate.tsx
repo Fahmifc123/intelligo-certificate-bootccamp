@@ -26,6 +26,22 @@ export function CertificateTemplate({ data }: { data: ParticipantData }) {
         }}
       />
 
+      {/* Banner title */}
+      <div
+        style={{
+          position: "absolute",
+          left: "4.4%",
+          top: "7.2%",
+          width: "58%",
+          color: "#ffffff",
+        }}
+      >
+        <div style={{ fontSize: "40pt", fontWeight: 800, lineHeight: 1 }}>CERTIFICATE</div>
+        <div style={{ fontSize: "18pt", fontWeight: 400, letterSpacing: "5px", marginTop: "0.12in" }}>
+          OF {(data.certificateType || "PARTICIPANT").toUpperCase()}
+        </div>
+      </div>
+
       {/* Recipient name */}
       <div
         style={{

@@ -25,6 +25,7 @@ async function saveAttempt(data: ParticipantData, status: "sent" | "failed", err
       total: data.total,
       grade: data.grade,
       modules: data.modules,
+      certificateType: data.certificateType,
       status,
       error,
     });

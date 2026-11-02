@@ -14,6 +14,8 @@ export type ParticipantData = {
   modules: ModuleScore[];
   total: number;
   grade: string;
+  /** The banner label on the certificate, e.g. "PARTICIPANT" or "COMPLETION". Defaults to "PARTICIPANT" when blank. */
+  certificateType?: string;
 };
 
 export type InvoiceItem = {

@@ -25,6 +25,7 @@ function emptyForm(): FormState {
     pelaksanaan: "",
     photoUrl: "",
     sendMode: "performance",
+    certificateType: "PARTICIPANT",
     includeScore: true,
     modules: DEFAULT_MODULES.map((m) => ({ ...m, score: 0 })),
   };
@@ -87,6 +88,7 @@ type CertificateRecord = {
   status: "valid" | "revoked";
   revoke_reason: string | null;
   revoked_at: string | null;
+  certificate_type: string | null;
 };
 
 function recordToParticipant(r: CertificateRecord): ParticipantData {
@@ -102,6 +104,7 @@ function recordToParticipant(r: CertificateRecord): ParticipantData {
     modules: r.modules,
     total: Number(r.total),
     grade: r.grade,
+    certificateType: r.certificate_type ?? undefined,
   };
 }
 
@@ -452,6 +455,14 @@ export function AdminApp() {
                 </Field>
                 <Field label="Batch">
                   <input className="input" value={form.batch} onChange={(e) => setForm({ ...form, batch: e.target.value })} />
+                </Field>
+                <Field label='Jenis Sertifikat (tulisan "OF ...")'>
+                  <input
+                    className="input"
+                    placeholder="PARTICIPANT"
+                    value={form.certificateType ?? ""}
+                    onChange={(e) => setForm({ ...form, certificateType: e.target.value })}
+                  />
                 </Field>
                 <Field label="Pelaksanaan">
                   <input

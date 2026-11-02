@@ -12,6 +12,7 @@ import type { ParticipantData, SendMode } from "@/lib/types";
 
 type FormState = Omit<ParticipantData, "modules" | "total" | "grade"> & {
   modules: ModuleScore[];
+  includeScore: boolean;
 };
 
 function emptyForm(): FormState {
@@ -24,11 +25,17 @@ function emptyForm(): FormState {
     pelaksanaan: "",
     photoUrl: "",
     sendMode: "performance",
+    includeScore: true,
     modules: DEFAULT_MODULES.map((m) => ({ ...m, score: 0 })),
   };
 }
 
+// An empty grade string is the signal (certificate template + history table)
+// that this participant has no score, as opposed to a computed "Poor".
 function toParticipant(f: FormState): ParticipantData {
+  if (!f.includeScore) {
+    return { ...f, modules: [], total: 0, grade: "" };
+  }
   const total = computeTotal(f.modules);
   return { ...f, total, grade: computeGrade(total) };
 }
@@ -456,70 +463,98 @@ export function AdminApp() {
                     onChange={(e) => setForm({ ...form, sendMode: e.target.value as SendMode })}
                   >
                     <option value="certificate">Certificate saja</option>
-                    <option value="performance">Certificate + Performance Report</option>
+                    <option value="performance" disabled={!form.includeScore}>
+                      Certificate + Performance Report
+                    </option>
                   </select>
                 </Field>
               </div>
 
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-semibold text-gray-700">Skor Modul</h3>
-                  <button type="button" className="text-xs text-[#FF5400] hover:underline" onClick={addModule}>
-                    + Tambah Modul
-                  </button>
-                </div>
-                <div className="grid grid-cols-[1fr_5rem_5rem_1.5rem] gap-2 mb-1 text-xs text-gray-400">
-                  <span>Nama Modul</span>
-                  <span>Bobot</span>
-                  <span>Skor</span>
-                  <span></span>
-                </div>
-                <div className="space-y-2">
-                  {form.modules.map((m, i) => (
-                    <div key={i} className="grid grid-cols-[1fr_5rem_5rem_1.5rem] gap-2 items-center">
-                      <input
-                        className="input"
-                        placeholder="Nama modul"
-                        value={m.module}
-                        onChange={(e) => updateModule(i, { module: e.target.value })}
-                      />
-                      <input
-                        type="number"
-                        className="input"
-                        value={m.weight}
-                        step={0.05}
-                        onChange={(e) => updateModule(i, { weight: Number(e.target.value) })}
-                        title="Bobot (0-1)"
-                      />
-                      <input
-                        type="number"
-                        className="input"
-                        value={m.score}
-                        onChange={(e) => updateModule(i, { score: Number(e.target.value) })}
-                        title="Skor (0-100)"
-                      />
-                      <button
-                        type="button"
-                        className="text-gray-400 hover:text-red-600 text-lg leading-none"
-                        onClick={() => removeModule(i)}
-                        title="Hapus modul ini"
-                        disabled={form.modules.length <= 1}
-                      >
-                        ×
+                <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
+                  <input
+                    type="checkbox"
+                    checked={form.includeScore}
+                    onChange={(e) => {
+                      const includeScore = e.target.checked;
+                      setForm((f) => ({
+                        ...f,
+                        includeScore,
+                        sendMode: includeScore ? f.sendMode : "certificate",
+                      }));
+                    }}
+                  />
+                  Sertakan skor pada sertifikat
+                </label>
+                {!form.includeScore && (
+                  <p className="text-xs text-gray-500 -mt-1 mb-2">
+                    Sertifikat akan dibuat tanpa baris Score/Grade. Performance Report butuh skor, jadi mode kirim
+                    otomatis dikunci ke &quot;Certificate saja&quot;.
+                  </p>
+                )}
+
+                {form.includeScore && (
+                  <>
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="text-sm font-semibold text-gray-700">Skor Modul</h3>
+                      <button type="button" className="text-xs text-[#FF5400] hover:underline" onClick={addModule}>
+                        + Tambah Modul
                       </button>
                     </div>
-                  ))}
-                </div>
-                <p className="text-xs text-gray-500 mt-2">
-                  Total: <strong>{participant.total.toFixed(2)}</strong> &middot; Grade:{" "}
-                  <strong>{participant.grade}</strong>
-                  {Math.abs(form.modules.reduce((s, m) => s + m.weight, 0) - 1) > 0.001 && (
-                    <span className="text-amber-600">
-                      {" "}
-                      &middot; total bobot: {form.modules.reduce((s, m) => s + m.weight, 0).toFixed(2)} (idealnya 1.00)
-                    </span>
-                  )}
-                </p>
+                    <div className="grid grid-cols-[1fr_5rem_5rem_1.5rem] gap-2 mb-1 text-xs text-gray-400">
+                      <span>Nama Modul</span>
+                      <span>Bobot</span>
+                      <span>Skor</span>
+                      <span></span>
+                    </div>
+                    <div className="space-y-2">
+                      {form.modules.map((m, i) => (
+                        <div key={i} className="grid grid-cols-[1fr_5rem_5rem_1.5rem] gap-2 items-center">
+                          <input
+                            className="input"
+                            placeholder="Nama modul"
+                            value={m.module}
+                            onChange={(e) => updateModule(i, { module: e.target.value })}
+                          />
+                          <input
+                            type="number"
+                            className="input"
+                            value={m.weight}
+                            step={0.05}
+                            onChange={(e) => updateModule(i, { weight: Number(e.target.value) })}
+                            title="Bobot (0-1)"
+                          />
+                          <input
+                            type="number"
+                            className="input"
+                            value={m.score}
+                            onChange={(e) => updateModule(i, { score: Number(e.target.value) })}
+                            title="Skor (0-100)"
+                          />
+                          <button
+                            type="button"
+                            className="text-gray-400 hover:text-red-600 text-lg leading-none"
+                            onClick={() => removeModule(i)}
+                            title="Hapus modul ini"
+                            disabled={form.modules.length <= 1}
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-xs text-gray-500 mt-2">
+                      Total: <strong>{participant.total.toFixed(2)}</strong> &middot; Grade:{" "}
+                      <strong>{participant.grade}</strong>
+                      {Math.abs(form.modules.reduce((s, m) => s + m.weight, 0) - 1) > 0.001 && (
+                        <span className="text-amber-600">
+                          {" "}
+                          &middot; total bobot: {form.modules.reduce((s, m) => s + m.weight, 0).toFixed(2)} (idealnya 1.00)
+                        </span>
+                      )}
+                    </p>
+                  </>
+                )}
               </div>
 
               {message && (
@@ -638,8 +673,8 @@ export function AdminApp() {
                           <td className="py-2 pr-4">{row.nama}</td>
                           <td className="py-2 pr-4">{row.email}</td>
                           <td className="py-2 pr-4">{row.batch}</td>
-                          <td className="py-2 pr-4">{row.total.toFixed(2)}</td>
-                          <td className="py-2 pr-4">{row.grade}</td>
+                          <td className="py-2 pr-4">{row.grade === "" ? "-" : row.total.toFixed(2)}</td>
+                          <td className="py-2 pr-4">{row.grade === "" ? "-" : row.grade}</td>
                           <td className="py-2 pr-4">{row.sendMode}</td>
                           <td className="py-2 pr-4">
                             <StatusBadge status={sendStatus[i]} />
@@ -738,7 +773,7 @@ export function AdminApp() {
                       <td className="py-2 pr-4">{r.nama}</td>
                       <td className="py-2 pr-4">{r.email}</td>
                       <td className="py-2 pr-4">{r.batch}</td>
-                      <td className="py-2 pr-4">{r.grade}</td>
+                      <td className="py-2 pr-4">{r.grade === "" ? "-" : r.grade}</td>
                       <td className="py-2 pr-4">
                         <HistoryStatusBadge status={r.sent_status} error={r.sent_error} />
                       </td>
@@ -889,7 +924,8 @@ function PreviewModal({
           <div>
             <h3 className="font-semibold text-gray-800">{row.nama}</h3>
             <p className="text-xs text-gray-500">
-              {row.email} &middot; Total {row.total.toFixed(2)} &middot; {row.grade}
+              {row.email}
+              {row.grade !== "" && ` · Total ${row.total.toFixed(2)} · ${row.grade}`}
             </p>
           </div>
           <button className="btn" onClick={onClose}>

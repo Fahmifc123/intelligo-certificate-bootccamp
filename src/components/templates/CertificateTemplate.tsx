@@ -82,9 +82,11 @@ export function CertificateTemplate({
           color: "#111827",
         }}
       >
-        <div>
-          Score | Grade&nbsp;&nbsp;: {data.total.toFixed(2)} | {data.grade}
-        </div>
+        {data.grade !== "" && (
+          <div>
+            Score | Grade&nbsp;&nbsp;: {data.total.toFixed(2)} | {data.grade}
+          </div>
+        )}
         <div>Certificate ID&nbsp;&nbsp;: {data.id}</div>
       </div>
 

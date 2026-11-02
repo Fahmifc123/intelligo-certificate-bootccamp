@@ -59,7 +59,9 @@ export function CertificateTemplate({ data }: { data: ParticipantData }) {
         <div style={{ fontWeight: 700, fontSize: "15pt", color: "#023047" }}>
           {data.batch ? `${data.judul} (${data.batch})` : data.judul}
         </div>
-        {data.pelaksanaan && <div>held from {data.pelaksanaan}</div>}
+        {data.pelaksanaan && (
+          <div>{data.pelaksanaan.includes(" to ") ? "held from" : "held on"} {data.pelaksanaan}</div>
+        )}
       </div>
 
       {/* Score / Grade / Certificate ID */}

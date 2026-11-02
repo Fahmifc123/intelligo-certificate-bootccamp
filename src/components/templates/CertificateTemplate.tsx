@@ -1,14 +1,6 @@
 import type { ParticipantData } from "@/lib/types";
 
-export function CertificateTemplate({
-  data,
-  qrDataUrl,
-  verifyUrl,
-}: {
-  data: ParticipantData;
-  qrDataUrl?: string;
-  verifyUrl?: string;
-}) {
+export function CertificateTemplate({ data }: { data: ParticipantData }) {
   return (
     <div
       style={{
@@ -89,27 +81,6 @@ export function CertificateTemplate({
         )}
         <div>Certificate ID&nbsp;&nbsp;: {data.id}</div>
       </div>
-
-      {/* QR verification */}
-      {qrDataUrl && (
-        <div
-          style={{
-            position: "absolute",
-            left: "4.84%",
-            top: "67.5%",
-            display: "flex",
-            alignItems: "center",
-            gap: "0.14in",
-          }}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={qrDataUrl} alt="" style={{ width: "0.85in", height: "0.85in" }} />
-          <div style={{ fontSize: "7.5pt", color: "#6B7280", lineHeight: 1.4, maxWidth: "1.9in" }}>
-            <div>Verifikasi keaslian sertifikat:</div>
-            <div style={{ fontWeight: 600, color: "#023047" }}>{verifyUrl}</div>
-          </div>
-        </div>
-      )}
 
       {/* Signature */}
       {/* eslint-disable-next-line @next/next/no-img-element */}

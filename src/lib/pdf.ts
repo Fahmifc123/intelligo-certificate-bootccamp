@@ -30,7 +30,9 @@ export async function renderPdf(baseUrl: string, kind: PdfKind, encoded: string)
   const browser = await launchBrowser();
   try {
     const page = await browser.newPage();
-    const url = `${baseUrl}/print/${kind}?d=${encoded}`;
+    const key = process.env.INTERNAL_RENDER_SECRET;
+    const keyParam = key ? `&key=${encodeURIComponent(key)}` : "";
+    const url = `${baseUrl}/print/${kind}?d=${encoded}${keyParam}`;
     await page.goto(url, { waitUntil: "networkidle0" });
     const { width, height } = PAGE_SIZE[kind];
     const pdf = await page.pdf({

@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
 import { encodeParticipant } from "@/lib/encode";
 import { buildEmailHtml, buildEmailSubject } from "@/lib/email-template";
-import { isDbConfigured, recordSendAttempt } from "@/lib/db";
+import { isDbConfigured, getCertificateById, recordSendAttempt } from "@/lib/db";
 import { renderPdf } from "@/lib/pdf";
+import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { getOrigin } from "@/lib/request-origin";
 import type { ParticipantData } from "@/lib/types";
 
@@ -33,6 +34,11 @@ async function saveAttempt(data: ParticipantData, status: "sent" | "failed", err
 }
 
 export async function POST(req: NextRequest) {
+  const { ok } = rateLimit(`send:${clientIp(req)}`, 20, 60_000);
+  if (!ok) {
+    return NextResponse.json({ error: "Terlalu banyak permintaan, coba lagi sebentar." }, { status: 429 });
+  }
+
   const data = (await req.json()) as ParticipantData;
 
   const apiKey = process.env.RESEND_API_KEY;
@@ -41,6 +47,17 @@ export async function POST(req: NextRequest) {
     const message = "RESEND_API_KEY / EMAIL_FROM belum diset di environment variables.";
     await saveAttempt(data, "failed", message);
     return NextResponse.json({ error: message }, { status: 500 });
+  }
+
+  // Certificate IDs are permanent once issued. If this ID already belongs to
+  // a different participant, refuse instead of silently overwriting their
+  // record (a same-participant resend — same name+email — is fine).
+  if (isDbConfigured()) {
+    const existing = await getCertificateById(data.id);
+    if (existing && (existing.nama !== data.nama || existing.email !== data.email)) {
+      const message = `Certificate ID "${data.id}" sudah dipakai untuk ${existing.nama} (${existing.email}). Generate ID baru.`;
+      return NextResponse.json({ error: message }, { status: 409 });
+    }
   }
 
   try {

@@ -51,6 +51,9 @@ type CertificateRecord = {
   sent_at: string | null;
   sent_status: "pending" | "sent" | "failed";
   sent_error: string | null;
+  status: "valid" | "revoked";
+  revoke_reason: string | null;
+  revoked_at: string | null;
 };
 
 function recordToParticipant(r: CertificateRecord): ParticipantData {
@@ -105,6 +108,9 @@ export function AdminApp() {
   const [historySearch, setHistorySearch] = useState("");
   const [historyStatusFilter, setHistoryStatusFilter] = useState<"all" | "sent" | "failed" | "pending">("all");
   const [historyPreview, setHistoryPreview] = useState<CertificateRecord | null>(null);
+  const [revokeTarget, setRevokeTarget] = useState<CertificateRecord | null>(null);
+  const [revokeReason, setRevokeReason] = useState("");
+  const [revokeBusy, setRevokeBusy] = useState(false);
 
   const participant = useMemo(() => toParticipant(form), [form]);
   const encoded = useMemo(() => encodeParticipantClient(participant), [participant]);
@@ -196,7 +202,11 @@ export function AdminApp() {
       setBulkSelected(new Set(json.participants.map((_: unknown, i: number) => i)));
       setSendStatus({});
       setBulkSearch("");
-      setBulkProgress(`${json.participants.length} peserta ditemukan.`);
+      const warnings: string[] = json.warnings || [];
+      setBulkProgress(
+        `${json.participants.length} peserta ditemukan.` +
+          (warnings.length ? ` ${warnings.length} ID diganti otomatis karena duplikat: ${warnings.join(" ")}` : "")
+      );
     } catch (e) {
       setBulkProgress(`Gagal: ${(e as Error).message}`);
     } finally {
@@ -276,6 +286,39 @@ export function AdminApp() {
     await loadHistory();
   }
 
+  async function confirmRevoke() {
+    if (!revokeTarget || !revokeReason.trim()) return;
+    setRevokeBusy(true);
+    try {
+      const res = await fetch(`/api/certificates/${encodeURIComponent(revokeTarget.id)}/revoke`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: revokeReason.trim() }),
+      });
+      if (!res.ok) throw new Error(await readErrorMessage(res));
+      setRevokeTarget(null);
+      setRevokeReason("");
+      await loadHistory();
+    } catch (e) {
+      alert(`Gagal mencabut sertifikat: ${(e as Error).message}`);
+    } finally {
+      setRevokeBusy(false);
+    }
+  }
+
+  async function handleUnrevoke(record: CertificateRecord) {
+    if (!confirm(`Aktifkan lagi sertifikat ${record.nama} (${record.id})?`)) return;
+    try {
+      const res = await fetch(`/api/certificates/${encodeURIComponent(record.id)}/revoke`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error(await readErrorMessage(res));
+      await loadHistory();
+    } catch (e) {
+      alert(`Gagal mengaktifkan ulang: ${(e as Error).message}`);
+    }
+  }
+
   const filteredHistory = useMemo(() => {
     const q = historySearch.trim().toLowerCase();
     return historyRows.filter((r) => {
@@ -295,10 +338,19 @@ export function AdminApp() {
       <header className="bg-[#023047] text-white px-6 py-4 flex items-center gap-3">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/brand/logo.png" alt="Intelligo.ID" className="h-9 w-9 object-contain bg-white rounded-full p-1" />
-        <div>
+        <div className="flex-1">
           <h1 className="text-lg font-semibold">Certificate & Performance Report Generator</h1>
           <p className="text-xs text-white/70">Intelligo.ID internal tool</p>
         </div>
+        <button
+          className="text-xs text-white/70 hover:text-white border border-white/30 rounded-md px-3 py-1.5"
+          onClick={async () => {
+            await fetch("/api/logout", { method: "POST" });
+            window.location.href = "/login";
+          }}
+        >
+          Keluar
+        </button>
       </header>
 
       <div className="max-w-6xl mx-auto px-6 py-6">
@@ -673,7 +725,8 @@ export function AdminApp() {
                     <th className="py-2 pr-4">Email</th>
                     <th className="py-2 pr-4">Batch</th>
                     <th className="py-2 pr-4">Grade</th>
-                    <th className="py-2 pr-4">Status</th>
+                    <th className="py-2 pr-4">Status Kirim</th>
+                    <th className="py-2 pr-4">Status Sertifikat</th>
                     <th className="py-2 pr-4">Tanggal Kirim</th>
                     <th className="py-2 pr-4">Aksi</th>
                   </tr>
@@ -689,6 +742,20 @@ export function AdminApp() {
                       <td className="py-2 pr-4">
                         <HistoryStatusBadge status={r.sent_status} error={r.sent_error} />
                       </td>
+                      <td className="py-2 pr-4">
+                        {r.status === "revoked" ? (
+                          <span
+                            className="text-xs font-medium text-red-700 bg-red-50 px-2 py-0.5 rounded-full"
+                            title={r.revoke_reason ?? undefined}
+                          >
+                            Dicabut
+                          </span>
+                        ) : (
+                          <span className="text-xs font-medium text-green-700 bg-green-50 px-2 py-0.5 rounded-full">
+                            Berlaku
+                          </span>
+                        )}
+                      </td>
                       <td className="py-2 pr-4 text-xs text-gray-500">
                         {r.sent_at ? new Date(r.sent_at).toLocaleString("id-ID") : "—"}
                       </td>
@@ -699,15 +766,30 @@ export function AdminApp() {
                         >
                           Preview
                         </button>
-                        <button className="text-[#FF5400] hover:underline" onClick={() => handleResend(r)}>
+                        <button className="text-[#FF5400] hover:underline mr-3" onClick={() => handleResend(r)}>
                           Kirim Ulang
                         </button>
+                        {r.status === "revoked" ? (
+                          <button className="text-green-700 hover:underline" onClick={() => handleUnrevoke(r)}>
+                            Aktifkan
+                          </button>
+                        ) : (
+                          <button
+                            className="text-red-600 hover:underline"
+                            onClick={() => {
+                              setRevokeTarget(r);
+                              setRevokeReason("");
+                            }}
+                          >
+                            Cabut
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
                   {filteredHistory.length === 0 && !historyLoading && (
                     <tr>
-                      <td colSpan={8} className="py-6 text-center text-gray-400">
+                      <td colSpan={9} className="py-6 text-center text-gray-400">
                         Belum ada riwayat sertifikat.
                       </td>
                     </tr>
@@ -728,6 +810,47 @@ export function AdminApp() {
             setHistoryPreview(null);
           }}
         />
+      )}
+
+      {revokeTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-md w-full">
+            <div className="px-5 py-3 border-b">
+              <h3 className="font-semibold text-gray-800">Cabut Sertifikat</h3>
+              <p className="text-xs text-gray-500 mt-1">
+                {revokeTarget.nama} &middot; {revokeTarget.id}
+              </p>
+            </div>
+            <div className="p-5 space-y-3">
+              <p className="text-sm text-gray-600">
+                Sertifikat yang dicabut akan muncul sebagai <strong>&quot;revoked&quot;</strong> di halaman
+                verifikasi publik. ID tidak dihapus, hanya ditandai tidak berlaku.
+              </p>
+              <label className="block">
+                <span className="text-xs font-medium text-gray-600 block mb-1">Alasan pencabutan</span>
+                <textarea
+                  className="input"
+                  rows={3}
+                  value={revokeReason}
+                  onChange={(e) => setRevokeReason(e.target.value)}
+                  placeholder="mis. Data peserta salah, diterbitkan ganda, dll."
+                />
+              </label>
+            </div>
+            <div className="px-5 pb-5 flex justify-end gap-2">
+              <button className="btn" onClick={() => setRevokeTarget(null)}>
+                Batal
+              </button>
+              <button
+                className="bg-red-600 text-white rounded-md px-4 py-2 text-sm font-semibold disabled:opacity-60"
+                disabled={!revokeReason.trim() || revokeBusy}
+                onClick={confirmRevoke}
+              >
+                {revokeBusy ? "Mencabut..." : "Cabut Sertifikat"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {previewIndex !== null && bulkRows[previewIndex] && (

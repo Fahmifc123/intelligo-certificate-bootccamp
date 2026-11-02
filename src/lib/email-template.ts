@@ -1,3 +1,4 @@
+import { buildVerifyUrl } from "./verify-link";
 import type { ParticipantData } from "./types";
 
 export function buildEmailSubject(data: ParticipantData): string {
@@ -32,6 +33,10 @@ export function buildEmailHtml(data: ParticipantData): string {
         <p style="margin:0;font-size:15px;"><strong>${data.judul} ${data.batch}</strong></p>
       </div>
       <p style="margin:0 0 16px 0;">Attached to this email is your <strong>Certificate of Completion</strong>, which serves as official proof of your participation and learning progress throughout the program.</p>
+      <p style="margin:0 0 16px 0;">
+        Verify this certificate anytime (e.g. when sharing it on LinkedIn) at:<br />
+        <a href="${buildVerifyUrl(data.id)}" style="color:#FF5400;text-decoration:none;">${buildVerifyUrl(data.id)}</a>
+      </p>
       ${performanceBlock}
       <p style="margin:0 0 20px 0;">If you'd like to continue learning through advanced modules, private mentoring, or job-ready guidance, feel free to reach out anytime.</p>
       <p style="margin:0 0 20px 0;">

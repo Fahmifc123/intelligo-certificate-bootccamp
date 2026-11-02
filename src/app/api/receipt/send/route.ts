@@ -4,12 +4,18 @@ import { encodeParticipant } from "@/lib/encode";
 import { buildReceiptEmailHtml, buildReceiptEmailSubject } from "@/lib/receipt-email-template";
 import { saveReceiptAttempt } from "@/lib/receipt-history";
 import { renderPdf } from "@/lib/pdf";
+import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { getOrigin } from "@/lib/request-origin";
 import type { ReceiptData } from "@/lib/types";
 
 export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
+  const { ok } = rateLimit(`send:${clientIp(req)}`, 20, 60_000);
+  if (!ok) {
+    return NextResponse.json({ error: "Terlalu banyak permintaan, coba lagi sebentar." }, { status: 429 });
+  }
+
   const data = (await req.json()) as ReceiptData;
 
   const apiKey = process.env.RESEND_API_KEY;

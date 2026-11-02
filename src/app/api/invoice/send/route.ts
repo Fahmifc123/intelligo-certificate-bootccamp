@@ -4,12 +4,18 @@ import { encodeParticipant } from "@/lib/encode";
 import { buildInvoiceEmailHtml, buildInvoiceEmailSubject } from "@/lib/invoice-email-template";
 import { saveInvoiceAttempt as saveAttempt } from "@/lib/invoice-history";
 import { renderPdf } from "@/lib/pdf";
+import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { getOrigin } from "@/lib/request-origin";
 import type { InvoiceData } from "@/lib/types";
 
 export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
+  const { ok } = rateLimit(`send:${clientIp(req)}`, 20, 60_000);
+  if (!ok) {
+    return NextResponse.json({ error: "Terlalu banyak permintaan, coba lagi sebentar." }, { status: 429 });
+  }
+
   const data = (await req.json()) as InvoiceData;
 
   const apiKey = process.env.RESEND_API_KEY;

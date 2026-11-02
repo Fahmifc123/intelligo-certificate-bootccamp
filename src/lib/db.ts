@@ -61,6 +61,10 @@ async function ensureSchema(): Promise<void> {
         sent_status TEXT NOT NULL DEFAULT 'pending',
         sent_error TEXT
       );
+
+      ALTER TABLE certificates ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'valid';
+      ALTER TABLE certificates ADD COLUMN IF NOT EXISTS revoke_reason TEXT;
+      ALTER TABLE certificates ADD COLUMN IF NOT EXISTS revoked_at TIMESTAMPTZ;
     `).then(() => undefined);
   }
   await schemaReady;
@@ -82,6 +86,9 @@ export type CertificateRecord = {
   sent_at: string | null;
   sent_status: "pending" | "sent" | "failed";
   sent_error: string | null;
+  status: "valid" | "revoked";
+  revoke_reason: string | null;
+  revoked_at: string | null;
 };
 
 export async function listCertificates(): Promise<CertificateRecord[]> {
@@ -90,6 +97,34 @@ export async function listCertificates(): Promise<CertificateRecord[]> {
     "SELECT * FROM certificates ORDER BY created_at DESC LIMIT 500"
   );
   return rows;
+}
+
+/** Case-insensitive, trimmed lookup — used by the public verification endpoint. */
+export async function getCertificateById(id: string): Promise<CertificateRecord | null> {
+  await ensureSchema();
+  const { rows } = await getPool().query<CertificateRecord>(
+    "SELECT * FROM certificates WHERE upper(id) = upper($1) LIMIT 1",
+    [id.trim()]
+  );
+  return rows[0] ?? null;
+}
+
+export async function revokeCertificate(id: string, reason: string): Promise<boolean> {
+  await ensureSchema();
+  const { rowCount } = await getPool().query(
+    `UPDATE certificates SET status = 'revoked', revoke_reason = $2, revoked_at = now() WHERE upper(id) = upper($1)`,
+    [id.trim(), reason]
+  );
+  return (rowCount ?? 0) > 0;
+}
+
+export async function unrevokeCertificate(id: string): Promise<boolean> {
+  await ensureSchema();
+  const { rowCount } = await getPool().query(
+    `UPDATE certificates SET status = 'valid', revoke_reason = NULL, revoked_at = NULL WHERE upper(id) = upper($1)`,
+    [id.trim()]
+  );
+  return (rowCount ?? 0) > 0;
 }
 
 export async function recordSendAttempt(params: {

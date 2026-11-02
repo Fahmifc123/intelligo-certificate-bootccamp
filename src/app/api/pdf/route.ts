@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { encodeParticipant } from "@/lib/encode";
 import { saveInvoiceAttempt } from "@/lib/invoice-history";
 import { saveReceiptAttempt } from "@/lib/receipt-history";
+import { isDbConfigured, getCertificateById, recordSendAttempt } from "@/lib/db";
 import { renderPdf, type PdfKind } from "@/lib/pdf";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { getOrigin } from "@/lib/request-origin";
@@ -26,6 +27,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid kind" }, { status: 400 });
   }
 
+  // Certificate IDs are permanent once issued. If this download's ID already
+  // belongs to a different participant, refuse instead of silently
+  // overwriting their saved record (a same-participant re-download is fine).
+  if (body.kind === "certificate" && isDbConfigured()) {
+    const data = body.data as ParticipantData;
+    const existing = await getCertificateById(data.id);
+    if (existing && (existing.nama !== data.nama || existing.email !== data.email)) {
+      return NextResponse.json(
+        { error: `Certificate ID "${data.id}" sudah dipakai untuk ${existing.nama} (${existing.email}). Generate ID baru.` },
+        { status: 409 }
+      );
+    }
+  }
+
   try {
     const origin = await getOrigin();
     const encoded = encodeParticipant(body.data);
@@ -33,7 +48,24 @@ export async function POST(req: NextRequest) {
 
     let filename: string;
     if (body.kind === "certificate") {
-      filename = `${(body.data as ParticipantData).nama} - Certificate.pdf`;
+      const data = body.data as ParticipantData;
+      filename = `${data.nama} - Certificate.pdf`;
+      if (isDbConfigured()) {
+        await recordSendAttempt({
+          id: data.id,
+          nama: data.nama,
+          email: data.email,
+          judul: data.judul,
+          batch: data.batch,
+          pelaksanaan: data.pelaksanaan,
+          photoUrl: data.photoUrl,
+          sendMode: data.sendMode,
+          total: data.total,
+          grade: data.grade,
+          modules: data.modules,
+          status: "pending",
+        });
+      }
     } else if (body.kind === "performance") {
       filename = `${(body.data as ParticipantData).nama} - Performance Report.pdf`;
     } else if (body.kind === "invoice") {

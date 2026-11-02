@@ -139,14 +139,16 @@ export async function recordSendAttempt(params: {
   total: number;
   grade: string;
   modules: unknown;
-  status: "sent" | "failed";
+  status: "pending" | "sent" | "failed";
   error?: string;
 }): Promise<void> {
   await ensureSchema();
+  // A "pending" record (e.g. a PDF download without emailing) must never
+  // downgrade a certificate that was already actually sent.
   await getPool().query(
     `INSERT INTO certificates
       (id, nama, email, judul, batch, pelaksanaan, photo_url, send_mode, total, grade, modules, sent_at, sent_status, sent_error)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11, now(), $12, $13)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11, CASE WHEN $12 = 'pending' THEN NULL ELSE now() END, $12, $13)
      ON CONFLICT (id) DO UPDATE SET
        nama = EXCLUDED.nama,
        email = EXCLUDED.email,
@@ -158,8 +160,12 @@ export async function recordSendAttempt(params: {
        total = EXCLUDED.total,
        grade = EXCLUDED.grade,
        modules = EXCLUDED.modules,
-       sent_at = now(),
-       sent_status = EXCLUDED.sent_status,
+       sent_at = CASE
+         WHEN certificates.sent_status = 'sent' THEN certificates.sent_at
+         WHEN EXCLUDED.sent_status = 'pending' THEN certificates.sent_at
+         ELSE now()
+       END,
+       sent_status = CASE WHEN certificates.sent_status = 'sent' THEN certificates.sent_status ELSE EXCLUDED.sent_status END,
        sent_error = EXCLUDED.sent_error`,
     [
       params.id,

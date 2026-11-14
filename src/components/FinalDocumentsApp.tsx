@@ -228,7 +228,6 @@ export function FinalDocumentsApp() {
               <th className="py-2 pr-4">Kelas (Judul Program)</th>
               <th className="py-2 pr-4">Judul Final Project</th>
               <th className="py-2 pr-4">Batch</th>
-              <th className="py-2 pr-4">Sertif Done (Sheet)</th>
               <th className="py-2 pr-4">Status Sertifikat</th>
               <th className="py-2 pr-4">Aksi</th>
             </tr>
@@ -236,13 +235,13 @@ export function FinalDocumentsApp() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={8} className="py-6 text-center text-gray-400">
+                <td colSpan={7} className="py-6 text-center text-gray-400">
                   Memuat...
                 </td>
               </tr>
             ) : filteredRows.length === 0 ? (
               <tr>
-                <td colSpan={8} className="py-6 text-center text-gray-400">
+                <td colSpan={7} className="py-6 text-center text-gray-400">
                   Belum ada data. Klik &quot;Sync Sekarang&quot; untuk ambil response dari sheet.
                 </td>
               </tr>
@@ -258,7 +257,6 @@ export function FinalDocumentsApp() {
                     {row.judul_final_project || "-"}
                   </td>
                   <td className="py-2 pr-4">{row.batch || "-"}</td>
-                  <td className="py-2 pr-4">{row.sertif_done_raw || "-"}</td>
                   <td className="py-2 pr-4">
                     <CertStatusBadge
                       certificateId={row.certificate_id}

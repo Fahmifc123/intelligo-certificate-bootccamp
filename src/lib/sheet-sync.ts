@@ -64,6 +64,7 @@ export type SheetRow = {
   timestampRaw: string;
   email: string;
   nama: string;
+  kelas: string;
   judulFinalProject: string;
   statusSaatIni: string;
   batch: string;
@@ -91,6 +92,7 @@ export async function fetchSheetRows(): Promise<SheetRow[]> {
     timestamp: findColumn(headers, (h) => h.startsWith("Timestamp")),
     email: findColumn(headers, (h) => h === "Email"),
     nama: findColumn(headers, (h) => h === "Nama"),
+    kelas: findColumn(headers, (h) => h.startsWith("Saya sudah mengikuti kelas")),
     judul: findColumn(headers, (h) => h.startsWith("Judul Final Project")),
     status: findColumn(headers, (h) => h.startsWith("Status Saat Ini")),
     batch: findColumn(headers, (h) => h.startsWith("Pada Batch")),
@@ -112,6 +114,7 @@ export async function fetchSheetRows(): Promise<SheetRow[]> {
       timestampRaw,
       email,
       nama,
+      kelas: idx.kelas >= 0 ? (r[idx.kelas] ?? "").trim() : "",
       judulFinalProject: idx.judul >= 0 ? (r[idx.judul] ?? "").trim() : "",
       statusSaatIni: idx.status >= 0 ? (r[idx.status] ?? "").trim() : "",
       batch: idx.batch >= 0 ? (r[idx.batch] ?? "").trim() : "",

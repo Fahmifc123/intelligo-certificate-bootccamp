@@ -60,7 +60,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ row
     id,
     nama,
     email,
-    judul: (body.judul ?? row.judul_final_project ?? "").trim(),
+    judul: (body.judul ?? row.kelas ?? "").trim(),
     batch: (body.batch ?? row.batch ?? "").trim(),
     pelaksanaan: (body.pelaksanaan ?? "").trim(),
     sendMode: "certificate",

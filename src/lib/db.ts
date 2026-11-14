@@ -81,6 +81,7 @@ async function ensureSchema(): Promise<void> {
         synced_at TIMESTAMPTZ NOT NULL DEFAULT now(),
         created_at TIMESTAMPTZ NOT NULL DEFAULT now()
       );
+      ALTER TABLE final_documents ADD COLUMN IF NOT EXISTS kelas TEXT NOT NULL DEFAULT '';
     `).then(() => undefined);
   }
   await schemaReady;
@@ -332,6 +333,7 @@ export type FinalDocumentRow = {
   timestamp_raw: string;
   email: string;
   nama: string;
+  kelas: string;
   judul_final_project: string;
   status_saat_ini: string;
   batch: string;
@@ -347,6 +349,7 @@ export async function upsertFinalDocumentRows(
     timestampRaw: string;
     email: string;
     nama: string;
+    kelas: string;
     judulFinalProject: string;
     statusSaatIni: string;
     batch: string;
@@ -360,18 +363,29 @@ export async function upsertFinalDocumentRows(
   for (const r of rows) {
     await pool.query(
       `INSERT INTO final_documents
-        (row_key, timestamp_raw, email, nama, judul_final_project, status_saat_ini, batch, sertif_done_raw, synced_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8, now())
+        (row_key, timestamp_raw, email, nama, kelas, judul_final_project, status_saat_ini, batch, sertif_done_raw, synced_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9, now())
        ON CONFLICT (row_key) DO UPDATE SET
          timestamp_raw = EXCLUDED.timestamp_raw,
          email = EXCLUDED.email,
          nama = EXCLUDED.nama,
+         kelas = EXCLUDED.kelas,
          judul_final_project = EXCLUDED.judul_final_project,
          status_saat_ini = EXCLUDED.status_saat_ini,
          batch = EXCLUDED.batch,
          sertif_done_raw = EXCLUDED.sertif_done_raw,
          synced_at = now()`,
-      [r.rowKey, r.timestampRaw, r.email, r.nama, r.judulFinalProject, r.statusSaatIni, r.batch, r.sertifDoneRaw]
+      [
+        r.rowKey,
+        r.timestampRaw,
+        r.email,
+        r.nama,
+        r.kelas,
+        r.judulFinalProject,
+        r.statusSaatIni,
+        r.batch,
+        r.sertifDoneRaw,
+      ]
     );
   }
 }

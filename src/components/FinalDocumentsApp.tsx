@@ -9,6 +9,7 @@ type FinalDocumentRow = {
   timestamp_raw: string;
   email: string;
   nama: string;
+  kelas: string;
   judul_final_project: string;
   status_saat_ini: string;
   batch: string;
@@ -32,7 +33,7 @@ function rowToEditForm(row: FinalDocumentRow): EditForm {
   return {
     nama: row.nama,
     email: row.email,
-    judul: row.judul_final_project,
+    judul: row.kelas,
     batch: row.batch,
     pelaksanaan: "",
     certificateType: "COMPLETION",
@@ -189,6 +190,7 @@ export function FinalDocumentsApp() {
       r.nama.toLowerCase().includes(q) ||
       r.email.toLowerCase().includes(q) ||
       r.batch.toLowerCase().includes(q) ||
+      r.kelas.toLowerCase().includes(q) ||
       r.judul_final_project.toLowerCase().includes(q)
   );
 
@@ -223,6 +225,7 @@ export function FinalDocumentsApp() {
             <tr className="text-left text-gray-500 border-b">
               <th className="py-2 pr-4">Nama</th>
               <th className="py-2 pr-4">Email</th>
+              <th className="py-2 pr-4">Kelas (Judul Program)</th>
               <th className="py-2 pr-4">Judul Final Project</th>
               <th className="py-2 pr-4">Batch</th>
               <th className="py-2 pr-4">Sertif Done (Sheet)</th>
@@ -233,13 +236,13 @@ export function FinalDocumentsApp() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={7} className="py-6 text-center text-gray-400">
+                <td colSpan={8} className="py-6 text-center text-gray-400">
                   Memuat...
                 </td>
               </tr>
             ) : filteredRows.length === 0 ? (
               <tr>
-                <td colSpan={7} className="py-6 text-center text-gray-400">
+                <td colSpan={8} className="py-6 text-center text-gray-400">
                   Belum ada data. Klik &quot;Sync Sekarang&quot; untuk ambil response dari sheet.
                 </td>
               </tr>
@@ -248,6 +251,9 @@ export function FinalDocumentsApp() {
                 <tr key={row.row_key} className="border-b last:border-0 hover:bg-gray-50 align-top">
                   <td className="py-2 pr-4">{row.nama}</td>
                   <td className="py-2 pr-4">{row.email}</td>
+                  <td className="py-2 pr-4 max-w-xs truncate" title={row.kelas}>
+                    {row.kelas || "-"}
+                  </td>
                   <td className="py-2 pr-4 max-w-xs truncate" title={row.judul_final_project}>
                     {row.judul_final_project || "-"}
                   </td>

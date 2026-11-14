@@ -67,6 +67,20 @@ async function ensureSchema(): Promise<void> {
       ALTER TABLE certificates ADD COLUMN IF NOT EXISTS revoked_at TIMESTAMPTZ;
       ALTER TABLE certificates ADD COLUMN IF NOT EXISTS certificate_type TEXT NOT NULL DEFAULT 'PARTICIPANT';
       ALTER TABLE certificates ADD COLUMN IF NOT EXISTS location TEXT NOT NULL DEFAULT '';
+
+      CREATE TABLE IF NOT EXISTS final_documents (
+        row_key TEXT PRIMARY KEY,
+        timestamp_raw TEXT NOT NULL DEFAULT '',
+        email TEXT NOT NULL,
+        nama TEXT NOT NULL,
+        judul_final_project TEXT NOT NULL DEFAULT '',
+        status_saat_ini TEXT NOT NULL DEFAULT '',
+        batch TEXT NOT NULL DEFAULT '',
+        sertif_done_raw TEXT NOT NULL DEFAULT '',
+        certificate_id TEXT,
+        synced_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
     `).then(() => undefined);
   }
   await schemaReady;
@@ -311,4 +325,78 @@ export async function recordReceiptSendAttempt(params: {
       params.error ?? null,
     ]
   );
+}
+
+export type FinalDocumentRow = {
+  row_key: string;
+  timestamp_raw: string;
+  email: string;
+  nama: string;
+  judul_final_project: string;
+  status_saat_ini: string;
+  batch: string;
+  sertif_done_raw: string;
+  certificate_id: string | null;
+  synced_at: string;
+  created_at: string;
+};
+
+export async function upsertFinalDocumentRows(
+  rows: {
+    rowKey: string;
+    timestampRaw: string;
+    email: string;
+    nama: string;
+    judulFinalProject: string;
+    statusSaatIni: string;
+    batch: string;
+    sertifDoneRaw: string;
+  }[]
+): Promise<void> {
+  if (rows.length === 0) return;
+  await ensureSchema();
+  const pool = getPool();
+  // Re-syncing must never clobber a certificate_id a previous sync already linked.
+  for (const r of rows) {
+    await pool.query(
+      `INSERT INTO final_documents
+        (row_key, timestamp_raw, email, nama, judul_final_project, status_saat_ini, batch, sertif_done_raw, synced_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8, now())
+       ON CONFLICT (row_key) DO UPDATE SET
+         timestamp_raw = EXCLUDED.timestamp_raw,
+         email = EXCLUDED.email,
+         nama = EXCLUDED.nama,
+         judul_final_project = EXCLUDED.judul_final_project,
+         status_saat_ini = EXCLUDED.status_saat_ini,
+         batch = EXCLUDED.batch,
+         sertif_done_raw = EXCLUDED.sertif_done_raw,
+         synced_at = now()`,
+      [r.rowKey, r.timestampRaw, r.email, r.nama, r.judulFinalProject, r.statusSaatIni, r.batch, r.sertifDoneRaw]
+    );
+  }
+}
+
+export async function listFinalDocuments(): Promise<FinalDocumentRow[]> {
+  await ensureSchema();
+  const { rows } = await getPool().query<FinalDocumentRow>(
+    "SELECT * FROM final_documents ORDER BY timestamp_raw DESC"
+  );
+  return rows;
+}
+
+export async function setFinalDocumentCertificateId(rowKey: string, certificateId: string): Promise<void> {
+  await ensureSchema();
+  await getPool().query("UPDATE final_documents SET certificate_id = $2 WHERE row_key = $1", [
+    rowKey,
+    certificateId,
+  ]);
+}
+
+export async function getFinalDocumentByRowKey(rowKey: string): Promise<FinalDocumentRow | null> {
+  await ensureSchema();
+  const { rows } = await getPool().query<FinalDocumentRow>(
+    "SELECT * FROM final_documents WHERE row_key = $1",
+    [rowKey]
+  );
+  return rows[0] ?? null;
 }

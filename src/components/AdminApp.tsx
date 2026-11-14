@@ -8,6 +8,7 @@ import { makeCertificateId } from "@/lib/id";
 import { PreviewCard } from "./PreviewCard";
 import { InvoiceApp } from "./InvoiceApp";
 import { ReceiptApp } from "./ReceiptApp";
+import { FinalDocumentsApp } from "./FinalDocumentsApp";
 import type { ParticipantData, SendMode } from "@/lib/types";
 
 type FormState = Omit<ParticipantData, "modules" | "total" | "grade"> & {
@@ -68,7 +69,7 @@ function toParticipant(f: FormState): ParticipantData {
   return { ...f, total, grade: computeGrade(total) };
 }
 
-type Tab = "manual" | "bulk" | "history" | "invoice" | "receipt";
+type Tab = "manual" | "bulk" | "history" | "finaldocs" | "invoice" | "receipt";
 
 type CertificateRecord = {
   id: string;
@@ -421,6 +422,14 @@ export function AdminApp() {
           >
             Riwayat Sertifikat
           </button>
+          <button
+            onClick={() => setTab("finaldocs")}
+            className={`px-4 py-2 rounded-md text-sm font-medium ${
+              tab === "finaldocs" ? "bg-[#FF5400] text-white" : "bg-white text-gray-600 border"
+            }`}
+          >
+            Dokumen Akhir
+          </button>
           <div className="w-px bg-gray-300 mx-1" />
           <button
             onClick={() => setTab("invoice")}
@@ -442,6 +451,7 @@ export function AdminApp() {
 
         {tab === "invoice" && <InvoiceApp />}
         {tab === "receipt" && <ReceiptApp />}
+        {tab === "finaldocs" && <FinalDocumentsApp />}
 
         {tab === "manual" && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

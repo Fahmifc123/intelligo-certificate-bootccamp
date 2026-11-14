@@ -15,6 +15,9 @@ dari Excel) lalu kirim otomatis lewat email — tanpa Google Sheets, Slides, ata
 - Total & Grade dihitung otomatis dari bobot tiap modul.
 - Desain sertifikat & performance report mengikuti brand Intelligo.ID (template asli:
   `Template_of_Certificate_Intelligo.pptx` dan `Template_of_Performance_Report_Intelligo.pptx`).
+- **Dokumen Akhir**: sync response dari Google Sheet (form submission final project), lalu
+  generate Certificate of Completion per peserta (bisa diedit dulu: judul program, batch,
+  jenis sertifikat, lokasi) tanpa auto-kirim email — tetap direview/dikirim manual.
 
 ## Menjalankan secara lokal
 
@@ -96,6 +99,11 @@ Lihat `.env.example` untuk template lengkap.
 - `src/app/api/import` — parse file Excel yang diupload jadi data peserta.
 - `src/app/api/public/verify/[id]` — endpoint publik read-only untuk verifikasi sertifikat.
 - `src/app/api/certificates/[id]/revoke` — cabut/aktifkan kembali sertifikat.
+- `src/app/api/final-documents` — list data "Dokumen Akhir" yang sudah di-sync.
+- `src/app/api/final-documents/sync` — tarik response terbaru dari Google Sheet.
+- `src/app/api/final-documents/[rowKey]/generate` — generate (atau regenerate) sertifikat
+  untuk satu response, simpan sebagai `pending` di tabel `certificates`.
+- `src/lib/sheet-sync.ts` — fetch + parse CSV export Google Sheet, mapping kolom form.
 - `src/proxy.ts` — gerbang autentikasi (Next.js Proxy/Middleware) untuk seluruh app.
 - `src/lib/auth.ts` — logic session cookie & password (Web Crypto, Edge-compatible).
 - `src/lib/rate-limit.ts` — rate limiter in-memory per-IP.

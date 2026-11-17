@@ -71,6 +71,7 @@ export function FinalDocumentsApp({
   const [syncing, setSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
   const [busyRowKey, setBusyRowKey] = useState<string | null>(null);
 
   async function loadRows() {
@@ -163,6 +164,7 @@ export function FinalDocumentsApp({
     }
   }
 
+  const PAGE_SIZE = 5;
   const q = search.trim().toLowerCase();
   const filteredRows = rows.filter(
     (r) =>
@@ -173,6 +175,9 @@ export function FinalDocumentsApp({
       r.kelas.toLowerCase().includes(q) ||
       r.judul_final_project.toLowerCase().includes(q)
   );
+  const pageCount = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount);
+  const pagedRows = filteredRows.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   return (
     <div className="bg-white rounded-lg border p-5 space-y-4">
@@ -197,7 +202,10 @@ export function FinalDocumentsApp({
         className="input max-w-xs"
         placeholder="Cari nama, email, batch, atau judul final project..."
         value={search}
-        onChange={(e) => setSearch(e.target.value)}
+        onChange={(e) => {
+          setSearch(e.target.value);
+          setPage(1);
+        }}
       />
 
       <div className="overflow-x-auto">
@@ -227,7 +235,7 @@ export function FinalDocumentsApp({
                 </td>
               </tr>
             ) : (
-              filteredRows.map((row) => {
+              pagedRows.map((row) => {
                 const hasCertificate = row.certificate_id !== null && row.certificate_sent_status !== null;
                 return (
                   <tr key={row.row_key} className="border-b last:border-0 hover:bg-gray-50 align-top">
@@ -281,6 +289,30 @@ export function FinalDocumentsApp({
           </tbody>
         </table>
       </div>
+
+      {filteredRows.length > 0 && (
+        <div className="flex items-center justify-between text-sm text-gray-600">
+          <span>
+            Halaman {currentPage} dari {pageCount} &middot; {filteredRows.length} peserta
+          </span>
+          <div className="flex gap-2">
+            <button
+              className="btn"
+              disabled={currentPage <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+            >
+              Sebelumnya
+            </button>
+            <button
+              className="btn"
+              disabled={currentPage >= pageCount}
+              onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
+            >
+              Berikutnya
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

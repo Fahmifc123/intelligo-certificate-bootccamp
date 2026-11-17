@@ -373,25 +373,53 @@ export function AdminApp() {
     batch: string;
     certificate_id: string | null;
   }) {
+    function freshFormState(id: string): FormState {
+      return {
+        id,
+        nama: row.nama,
+        email: row.email,
+        judul: row.kelas,
+        batch: row.batch,
+        pelaksanaan: "",
+        photoUrl: "",
+        sendMode: "certificate",
+        certificateType: "COMPLETION",
+        location: "",
+        includeScore: false,
+        modules: DEFAULT_MODULES.map((m) => ({ ...m, score: 0 })),
+      };
+    }
+
     try {
       if (row.certificate_id) {
+        // The ID may only be reserved (linked but never actually downloaded/sent
+        // yet), in which case there's no real certificate record to load — fall
+        // back to a fresh form using that same reserved ID.
         const res = await fetch(`/api/certificates/${encodeURIComponent(row.certificate_id)}`);
-        if (!res.ok) throw new Error(await readErrorMessage(res));
-        const { certificate } = (await res.json()) as { certificate: CertificateRecord };
-        setForm({
-          id: certificate.id,
-          nama: certificate.nama,
-          email: certificate.email,
-          judul: certificate.judul,
-          batch: certificate.batch,
-          pelaksanaan: certificate.pelaksanaan,
-          photoUrl: certificate.photo_url ?? "",
-          sendMode: certificate.send_mode === "performance" ? "performance" : "certificate",
-          certificateType: certificate.certificate_type ?? "PARTICIPANT",
-          location: certificate.location ?? "",
-          includeScore: certificate.grade !== "",
-          modules: certificate.modules.length > 0 ? certificate.modules : DEFAULT_MODULES.map((m) => ({ ...m, score: 0 })),
-        });
+        if (res.status === 404) {
+          setForm(freshFormState(row.certificate_id));
+        } else if (!res.ok) {
+          throw new Error(await readErrorMessage(res));
+        } else {
+          const { certificate } = (await res.json()) as { certificate: CertificateRecord };
+          setForm({
+            id: certificate.id,
+            nama: certificate.nama,
+            email: certificate.email,
+            judul: certificate.judul,
+            batch: certificate.batch,
+            pelaksanaan: certificate.pelaksanaan,
+            photoUrl: certificate.photo_url ?? "",
+            sendMode: certificate.send_mode === "performance" ? "performance" : "certificate",
+            certificateType: certificate.certificate_type ?? "PARTICIPANT",
+            location: certificate.location ?? "",
+            includeScore: certificate.grade !== "",
+            modules:
+              certificate.modules.length > 0
+                ? certificate.modules
+                : DEFAULT_MODULES.map((m) => ({ ...m, score: 0 })),
+          });
+        }
       } else {
         const id = makeCertificateId();
         const linkRes = await fetch(`/api/final-documents/${encodeURIComponent(row.row_key)}/link`, {
@@ -400,20 +428,7 @@ export function AdminApp() {
           body: JSON.stringify({ certificateId: id }),
         });
         if (!linkRes.ok) throw new Error(await readErrorMessage(linkRes));
-        setForm({
-          id,
-          nama: row.nama,
-          email: row.email,
-          judul: row.kelas,
-          batch: row.batch,
-          pelaksanaan: "",
-          photoUrl: "",
-          sendMode: "certificate",
-          certificateType: "COMPLETION",
-          location: "",
-          includeScore: false,
-          modules: DEFAULT_MODULES.map((m) => ({ ...m, score: 0 })),
-        });
+        setForm(freshFormState(id));
       }
       setPelaksanaanStart("");
       setPelaksanaanEnd("");

@@ -120,6 +120,7 @@ export function AdminApp() {
   const [oneDayOnly, setOneDayOnly] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+  const [testEmail, setTestEmail] = useState("");
 
   const [bulkRows, setBulkRows] = useState<ParticipantData[]>([]);
   const [bulkSelected, setBulkSelected] = useState<Set<number>>(new Set());
@@ -225,6 +226,26 @@ export function AdminApp() {
         photoUrl: "",
         modules: f.modules.map((m) => ({ ...m, score: 0 })),
       }));
+    } catch (e) {
+      setMessage({ type: "err", text: (e as Error).message });
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function handleSendTest() {
+    if (!testEmail.trim()) return;
+    setBusy("test");
+    setMessage(null);
+    try {
+      const res = await fetch("/api/send-test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...participant, testEmail: testEmail.trim() }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Gagal mengirim email tes");
+      setMessage({ type: "ok", text: `Email tes berhasil dikirim ke ${testEmail.trim()}` });
     } catch (e) {
       setMessage({ type: "err", text: (e as Error).message });
     } finally {
@@ -755,6 +776,22 @@ export function AdminApp() {
                   {message.text}
                 </div>
               )}
+
+              <div className="flex flex-wrap items-center gap-2 border-t pt-3">
+                <input
+                  type="email"
+                  className="input max-w-[220px]"
+                  placeholder="Email tujuan tes"
+                  value={testEmail}
+                  onChange={(e) => setTestEmail(e.target.value)}
+                />
+                <button className="btn" disabled={busy !== null || !testEmail} onClick={handleSendTest}>
+                  {busy === "test" ? "Mengirim tes..." : "Kirim Tes"}
+                </button>
+                <span className="text-xs text-gray-400">
+                  Kirim contoh email+PDF ke alamat ini saja, tidak tercatat di Riwayat Sertifikat.
+                </span>
+              </div>
 
               <div className="flex flex-wrap gap-2 pt-2">
                 <button className="btn" disabled={busy !== null} onClick={() => handleDownload("certificate")}>

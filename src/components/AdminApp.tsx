@@ -362,6 +362,69 @@ export function AdminApp() {
     }
   }
 
+  // Lets Dokumen Akhir hand a row off to the exact same Input Manual form
+  // (scores, Kirim Sebagai, date picker, Certificate ID, everything) instead
+  // of maintaining a second, smaller editing UI.
+  async function editFinalDocumentInManual(row: {
+    row_key: string;
+    nama: string;
+    email: string;
+    kelas: string;
+    batch: string;
+    certificate_id: string | null;
+  }) {
+    try {
+      if (row.certificate_id) {
+        const res = await fetch(`/api/certificates/${encodeURIComponent(row.certificate_id)}`);
+        if (!res.ok) throw new Error(await readErrorMessage(res));
+        const { certificate } = (await res.json()) as { certificate: CertificateRecord };
+        setForm({
+          id: certificate.id,
+          nama: certificate.nama,
+          email: certificate.email,
+          judul: certificate.judul,
+          batch: certificate.batch,
+          pelaksanaan: certificate.pelaksanaan,
+          photoUrl: certificate.photo_url ?? "",
+          sendMode: certificate.send_mode === "performance" ? "performance" : "certificate",
+          certificateType: certificate.certificate_type ?? "PARTICIPANT",
+          location: certificate.location ?? "",
+          includeScore: certificate.grade !== "",
+          modules: certificate.modules.length > 0 ? certificate.modules : DEFAULT_MODULES.map((m) => ({ ...m, score: 0 })),
+        });
+      } else {
+        const id = makeCertificateId();
+        const linkRes = await fetch(`/api/final-documents/${encodeURIComponent(row.row_key)}/link`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ certificateId: id }),
+        });
+        if (!linkRes.ok) throw new Error(await readErrorMessage(linkRes));
+        setForm({
+          id,
+          nama: row.nama,
+          email: row.email,
+          judul: row.kelas,
+          batch: row.batch,
+          pelaksanaan: "",
+          photoUrl: "",
+          sendMode: "certificate",
+          certificateType: "COMPLETION",
+          location: "",
+          includeScore: false,
+          modules: DEFAULT_MODULES.map((m) => ({ ...m, score: 0 })),
+        });
+      }
+      setPelaksanaanStart("");
+      setPelaksanaanEnd("");
+      setOneDayOnly(false);
+      setMessage(null);
+      setTab("manual");
+    } catch (e) {
+      alert(`Gagal membuka data untuk diedit: ${(e as Error).message}`);
+    }
+  }
+
   const filteredHistory = useMemo(() => {
     const q = historySearch.trim().toLowerCase();
     return historyRows.filter((r) => {
@@ -451,7 +514,7 @@ export function AdminApp() {
 
         {tab === "invoice" && <InvoiceApp />}
         {tab === "receipt" && <ReceiptApp />}
-        {tab === "finaldocs" && <FinalDocumentsApp />}
+        {tab === "finaldocs" && <FinalDocumentsApp onEditInManual={editFinalDocumentInManual} />}
 
         {tab === "manual" && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

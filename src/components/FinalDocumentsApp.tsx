@@ -144,6 +144,27 @@ export function FinalDocumentsApp({
     }
   }
 
+  async function handleSendTest(row: FinalDocumentRow) {
+    if (!row.certificate_id) return;
+    const testEmail = window.prompt("Kirim contoh email + PDF ke alamat ini (tidak tercatat di Riwayat Sertifikat):");
+    if (!testEmail || !testEmail.trim()) return;
+    setBusyRowKey(row.row_key);
+    try {
+      const participant = await fetchParticipant(row.certificate_id);
+      const res = await fetch("/api/send-test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...participant, testEmail: testEmail.trim() }),
+      });
+      if (!res.ok) throw new Error(await readErrorMessage(res));
+      alert(`Email tes berhasil dikirim ke ${testEmail.trim()}`);
+    } catch (e) {
+      alert(`Gagal mengirim email tes: ${(e as Error).message}`);
+    } finally {
+      setBusyRowKey(null);
+    }
+  }
+
   async function handleSendEmail(row: FinalDocumentRow) {
     if (!row.certificate_id) return;
     setBusyRowKey(row.row_key);
@@ -271,6 +292,13 @@ export function FinalDocumentsApp({
                             onClick={() => handleDownload(row)}
                           >
                             Download
+                          </button>
+                          <button
+                            className="text-gray-500 hover:underline mr-3"
+                            disabled={busyRowKey === row.row_key}
+                            onClick={() => handleSendTest(row)}
+                          >
+                            Kirim Tes
                           </button>
                           <button
                             className="text-gray-600 hover:underline"

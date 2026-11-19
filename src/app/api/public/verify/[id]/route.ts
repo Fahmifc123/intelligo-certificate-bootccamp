@@ -8,6 +8,13 @@ import { clientIp, rateLimit } from "@/lib/rate-limit";
 // reaches the database.
 const ID_PATTERN = /^[A-Z0-9-]{4,40}$/;
 
+/** Driver Postgres bisa mengembalikan Date atau string; keduanya dinormalisasi ke "YYYY-MM-DD". */
+function toIsoDate(value: unknown): string | null {
+  if (!value) return null;
+  const d = value instanceof Date ? value : new Date(String(value));
+  return Number.isNaN(d.getTime()) ? String(value).slice(0, 10) || null : d.toISOString().slice(0, 10);
+}
+
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { ok } = rateLimit(`verify:${clientIp(req)}`, 60, 60_000);
   if (!ok) {
@@ -41,7 +48,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       program: cert.judul,
       batch: cert.batch,
       period: cert.pelaksanaan || null,
-      issued_at: (cert.sent_at || cert.created_at)?.slice(0, 10) || null,
+      issued_at: toIsoDate(cert.sent_at || cert.created_at),
       type: "certificate",
       status: cert.status === "revoked" ? "revoked" : "valid",
     },
